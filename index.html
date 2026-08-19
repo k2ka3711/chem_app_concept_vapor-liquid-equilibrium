@@ -1,0 +1,1707 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>気液平衡の概念理解シミュレーター | 分子とグラフでつなぐ化学</title>
+  <style>
+    :root {
+      --bg-primary: #f8fafc;
+      --bg-card: #ffffff;
+      --bg-subtle: #f1f5f9;
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      --text-light: #64748b;
+      --border-color: #cbd5e1;
+      
+      --gas-color: #0284c7;
+      --gas-bg: #e0f2fe;
+      --liquid-color: #2563eb;
+      --liquid-bg: #dbeafe;
+      --eq-color: #0d9488;
+      --eq-bg: #ccfbf1;
+      --warning-color: #d97706;
+      --danger-color: #dc2626;
+      
+      --primary-accent: #3b82f6;
+      --primary-hover: #1d4ed8;
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "Hiragino Kaku Gothic ProN", "BIZ UDPGothic", Meiryo, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: var(--font-family);
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      line-height: 1.5;
+      padding: 12px;
+      max-width: 900px;
+      margin: 0 auto;
+      min-height: 100vh;
+    }
+
+    /* ヘッダー */
+    header {
+      text-align: center;
+      margin-bottom: 14px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #1e293b;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* STEPナビゲーション */
+    .step-nav {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+
+    .step-btn {
+      background: var(--bg-card);
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      padding: 8px 4px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      min-height: 48px;
+    }
+
+    .step-btn .step-tag {
+      font-size: 0.65rem;
+      opacity: 0.8;
+      text-transform: uppercase;
+    }
+
+    .step-btn.active {
+      background: #eff6ff;
+      border-color: var(--primary-accent);
+      color: var(--primary-hover);
+      box-shadow: 0 2px 4px rgba(59, 130, 246, 0.15);
+    }
+
+    /* 実験条件バナー */
+    .condition-banner {
+      background: #f1f5f9;
+      border-left: 4px solid var(--primary-accent);
+      padding: 6px 12px;
+      border-radius: 0 6px 6px 0;
+      margin-bottom: 12px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .condition-tag {
+      background: #e2e8f0;
+      color: #334155;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+    }
+
+    /* グリッドレイアウト（レスポンシブ） */
+    .main-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    @media (min-width: 768px) {
+      .vis-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+    }
+
+    /* カードUI共通 */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .card-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* 状態バッジ */
+    .phase-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .phase-gas { background: var(--gas-bg); color: var(--gas-color); border: 1px solid #bae6fd; }
+    .phase-eq { background: var(--eq-bg); color: var(--eq-color); border: 1px solid #99f6e4; }
+    .phase-liquid { background: var(--liquid-bg); color: var(--liquid-color); border: 1px solid #bfdbfe; }
+
+    /* 数値表示グリッド */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .metric-box {
+      background: var(--bg-subtle);
+      padding: 6px 8px;
+      border-radius: 6px;
+      text-align: center;
+    }
+
+    .metric-label {
+      font-size: 0.7rem;
+      color: var(--text-light);
+      font-weight: 600;
+    }
+
+    .metric-value {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-top: 1px;
+    }
+
+    .metric-unit {
+      font-size: 0.7rem;
+      font-weight: normal;
+      color: var(--text-muted);
+    }
+
+    /* 分子数カウントバー */
+    .molecules-bar-container {
+      margin-top: 8px;
+      background: #e2e8f0;
+      border-radius: 6px;
+      height: 22px;
+      display: flex;
+      overflow: hidden;
+      font-size: 0.75rem;
+      font-weight: 700;
+      line-height: 22px;
+    }
+
+    .bar-gas {
+      background: #38bdf8;
+      color: #0369a1;
+      text-align: center;
+      transition: width 0.15s ease;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    .bar-liquid {
+      background: #60a5fa;
+      color: #1e3a8a;
+      text-align: center;
+      transition: width 0.15s ease;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    /* Canvas共通 */
+    .canvas-wrapper {
+      position: relative;
+      width: 100%;
+      background: #f8fafc;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* 操作コントロール */
+    .controls-section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .control-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .slider-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .slider-limit {
+      font-size: 0.75rem;
+      color: var(--text-light);
+      font-weight: 600;
+      min-width: 24px;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 10px;
+      border-radius: 5px;
+      background: #cbd5e1;
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--primary-accent);
+      border: 2px solid white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      cursor: pointer;
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--primary-accent);
+      border: 2px solid white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      cursor: pointer;
+    }
+
+    /* 【修正2】クイック操作ボタン一覧（スマホ対応：縦並びリスト） */
+    .presets-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 4px;
+      width: 100%;
+    }
+
+    .preset-btn {
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #334155;
+      cursor: pointer;
+      text-align: left;
+      width: 100%;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .preset-btn:hover, .preset-btn:active {
+      background: #e2e8f0;
+      border-color: #94a3b8;
+    }
+
+    .preset-btn::after {
+      content: "➔";
+      font-size: 0.75rem;
+      opacity: 0.5;
+    }
+
+    /* 今、何が起きている？ ボックス */
+    .explanation-box {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-top: 4px;
+    }
+
+    .explanation-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #166534;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .explanation-text {
+      font-size: 0.85rem;
+      color: #14532d;
+      line-height: 1.5;
+    }
+
+    /* 【修正3】数式パネル（縦3行レイアウト） */
+    .formula-box {
+      background: #faf5ff;
+      border: 1px solid #e9d5ff;
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+
+    .formula-header {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #6b21a8;
+      margin-bottom: 6px;
+    }
+
+    .formula-items {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      width: 100%;
+    }
+
+    .formula-badge {
+      background: white;
+      border: 1px solid #d8b4fe;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #581c87;
+      opacity: 0.4;
+      transition: all 0.2s ease;
+      display: block;
+      width: 100%;
+    }
+
+    .formula-badge.active {
+      opacity: 1;
+      border-color: #9333ea;
+      background: #f3e8ff;
+      font-weight: 700;
+      box-shadow: 0 1px 3px rgba(147, 51, 234, 0.2);
+    }
+
+    .formula-note {
+      font-size: 0.75rem;
+      color: #7e22ce;
+      margin-top: 6px;
+      line-height: 1.4;
+    }
+
+    /* 次への誘導ボタン (STEP 0用) */
+    .next-step-prompt {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 8px;
+      padding: 10px 12px;
+      text-align: center;
+      margin-top: 8px;
+    }
+
+    .next-step-prompt p {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #92400e;
+      margin-bottom: 8px;
+    }
+
+    .action-btn {
+      background: #d97706;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .action-btn:hover {
+      background: #b45309;
+    }
+
+    /* 動的平衡のアニメーション凡例 */
+    .dynamic-eq-legend {
+      display: flex;
+      justify-content: space-around;
+      font-size: 0.75rem;
+      background: #ffffff;
+      padding: 5px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border-color);
+      margin-top: 6px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .dot-evap { background: #ea580c; }
+    .dot-cond { background: #2563eb; }
+
+    /* アニメーション用ヘルパー */
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ヘッダー -->
+  <header>
+    <h1>気液平衡の概念理解シミュレーター</h1>
+    <div class="subtitle">分子の世界（ミクロ）とグラフ（マクロ）をつなぐ化学教材</div>
+  </header>
+
+  <!-- STEPナビゲーション -->
+  <nav class="step-nav" aria-label="学習ステップ">
+    <button class="step-btn active" data-step="0">
+      <span class="step-tag">STEP 0</span>
+      <span>気液平衡を体験</span>
+    </button>
+    <button class="step-btn" data-step="1">
+      <span class="step-tag">STEP 1</span>
+      <span>P - T グラフ</span>
+    </button>
+    <button class="step-btn" data-step="2">
+      <span class="step-tag">STEP 2</span>
+      <span>P - V グラフ</span>
+    </button>
+    <button class="step-btn" data-step="3">
+      <span class="step-tag">STEP 3</span>
+      <span>V - T グラフ</span>
+    </button>
+  </nav>
+
+  <!-- 実験条件バナー -->
+  <div class="condition-banner">
+    <span id="condition-title">STEP 0: 気液平衡の基本現象</span>
+    <span class="condition-tag" id="condition-tag">T・V操作可能 / n一定</span>
+  </div>
+
+  <!-- メインコンテンツ -->
+  <main class="main-grid">
+
+    <!-- 状態サマリーカード -->
+    <section class="card" aria-label="現在の状態">
+      <div class="card-title">
+        <span>現在の状態</span>
+        <span class="phase-badge phase-gas" id="phase-badge">気体のみ</span>
+      </div>
+
+      <div class="metrics-grid">
+        <div class="metric-box">
+          <div class="metric-label">温度 T</div>
+          <div class="metric-value"><span id="val-t">420</span> <span class="metric-unit">K</span></div>
+          <div class="metric-label" style="font-size: 0.65rem; color: #64748b;">(<span id="val-t-c">147</span> ℃)</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">圧力 P</div>
+          <div class="metric-value"><span id="val-p">1.40</span> <span class="metric-unit">×10⁵ Pa</span></div>
+          <div class="metric-label" style="font-size: 0.65rem; color: #64748b;">Psat: <span id="val-psat">2.04</span></div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-label">体積 V</div>
+          <div class="metric-value"><span id="val-v">25.0</span> <span class="metric-unit">L</span></div>
+          <div class="metric-label" style="font-size: 0.65rem; color: #64748b;">物質量 n: 1.0 mol</div>
+        </div>
+      </div>
+
+      <!-- 分子数割合バー -->
+      <div class="molecules-bar-container" title="相ごとの分子数割合">
+        <div class="bar-gas" id="bar-gas" style="width: 100%;">気体分子: 60 (100%)</div>
+        <div class="bar-liquid" id="bar-liquid" style="width: 0%;">液体: 0 (0%)</div>
+      </div>
+    </section>
+
+    <!-- ビジュアル表示部（分子Canvas & グラフCanvas） -->
+    <div class="vis-container">
+      
+      <!-- 分子シミュレーションCanvas -->
+      <section class="card" aria-label="分子シミュレーション">
+        <div class="card-title">
+          <span>容器内の分子運動（ミクロ）</span>
+          <span style="font-size: 0.7rem; color: var(--text-light);" id="molecule-speed-label">分子運動: 活発</span>
+        </div>
+        <div class="canvas-wrapper" style="height: 240px;">
+          <canvas id="moleculeCanvas" width="400" height="240"></canvas>
+        </div>
+        
+        <!-- 凡例は常時表示 -->
+        <div class="dynamic-eq-legend" id="eq-legend">
+          <div class="legend-item"><span class="dot dot-evap"></span><span>蒸発 (液面から脱出)</span></div>
+          <div class="legend-item"><span class="dot dot-cond"></span><span>凝縮 (液面へ捕獲)</span></div>
+          <div class="legend-item" style="color: var(--text-muted); font-weight: 600;">気液平衡: 蒸発速度 ＝ 凝縮速度</div>
+        </div>
+      </section>
+
+      <!-- グラフ描画Canvas -->
+      <section class="card" id="graph-section" aria-label="状態変化グラフ">
+        <div class="card-title">
+          <span id="graph-title">P - T 状態変化グラフ（マクロ）</span>
+          <span style="font-size: 0.7rem; color: var(--text-light);">現在位置 ●</span>
+        </div>
+        <div class="canvas-wrapper" style="height: 240px;">
+          <canvas id="graphCanvas" width="400" height="240"></canvas>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-top: 4px; flex-wrap: wrap; gap: 4px;">
+          <span><strong style="color: #2563eb;">━━</strong> 実際の変化</span>
+          <span><strong style="color: #64748b;">┈┈</strong> 理想気体なら（灰色破線）</span>
+          <span><strong style="color: #0d9488;">╍╍</strong> 飽和蒸気圧曲線（緑の点線）</span>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- 操作スライダー・コントロール -->
+    <section class="card controls-section" aria-label="実験操作">
+      <div class="card-title">
+        <span>実験操作コントロール</span>
+        <span style="font-size: 0.75rem; color: var(--text-light);">スライダーを動かして変化を観察</span>
+      </div>
+
+      <!-- 温度スライダー (200K ~ 600K) -->
+      <div class="control-group" id="group-temp">
+        <div class="control-header">
+          <span>温度 T（加熱・冷却）</span>
+          <span style="color: var(--primary-accent);"><strong id="label-t">420</strong> K</span>
+        </div>
+        <div class="slider-container">
+          <span class="slider-limit">200K</span>
+          <input type="range" id="slider-t" min="200" max="600" step="1" value="420" aria-label="温度調整">
+          <span class="slider-limit">600K</span>
+        </div>
+      </div>
+
+      <!-- 体積スライダー (1.0L ~ 60.0L) -->
+      <div class="control-group" id="group-vol">
+        <div class="control-header">
+          <span>体積 V（ピストン圧縮・膨張）</span>
+          <span style="color: var(--primary-accent);"><strong id="label-v">25.0</strong> L</span>
+        </div>
+        <div class="slider-container">
+          <span class="slider-limit">1L</span>
+          <input type="range" id="slider-v" min="1.0" max="60.0" step="0.5" value="25.0" aria-label="体積調整">
+          <span class="slider-limit">60L</span>
+        </div>
+      </div>
+
+      <!-- 【修正2】縦並びクイック操作ボタン -->
+      <div>
+        <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-bottom: 4px;">クイック操作:</div>
+        <div class="presets-row" id="presets-container">
+          <!-- JSで動的生成 -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 【修正3】数式と状態対応（縦3行レイアウト） -->
+    <section class="formula-box" aria-label="適用される物理法則">
+      <div class="formula-header">どの数式・法則が成り立っているか？</div>
+      <div class="formula-items">
+        <div class="formula-badge" id="formula-ideal">① 理想気体の状態方程式: P = nRT / V (PV = nRT)</div>
+        <div class="formula-badge" id="formula-sat">② 飽和蒸気圧: P = Psat(T)</div>
+        <div class="formula-badge" id="formula-liquid">③ 液体の非圧縮性: V ≈ Vliq (縮みにくい)</div>
+      </div>
+      <div class="formula-note" id="formula-note">
+        ※ 気体のみのときは状態方程式に従いますが、気液平衡になると全体の圧力は温度ごとの「飽和蒸気圧」で決まります。
+      </div>
+    </section>
+
+    <!-- 「今、何が起きている？」解説 -->
+    <section class="explanation-box" aria-label="状態解説">
+      <div class="explanation-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+        <span>今、何が起きている？（科学的因果関係）</span>
+      </div>
+      <p class="explanation-text" id="explanation-text">
+        温度が高く、すべての分子が活発に飛び回る「気体」の状態です。理想気体の状態方程式 PV = nRT に従っています。
+      </p>
+    </section>
+
+    <!-- STEP 0限定：次の学習への問い -->
+    <section class="next-step-prompt" id="step0-next-prompt">
+      <p>💡 今見た「温度や体積を変えると凝縮する現象」を、P・V・T のグラフで表すとどうなるだろう？</p>
+      <button class="action-btn" id="btn-goto-step1">P - T グラフを見る (STEP 1へ)</button>
+    </section>
+
+  </main>
+
+  <script>
+    /**
+     * 気液平衡の概念理解 Webアプリ
+     * 物理化学モデル・分子動力学模式描画・Canvasグラフ描画エンジン
+     */
+
+    // --- 1. 定数と共通物理モデル ---
+    const R_CONST = 0.08314; // 気体定数 [10^5 Pa · L / (mol · K)]
+    const N_TOTAL = 1.0;     // 物質量 1.0 mol
+    const TOTAL_PARTICLES = 60; // 視覚化用総分子数
+    const V_LIQUID_MOLAR = 0.8; // 液体1molあたりの体積 [L]
+
+    /**
+     * 仮想物質の飽和蒸気圧モデル Psat(T) [×10^5 Pa]
+     * T = 360K で Psat = 1.00 (×10^5 Pa)
+     */
+    function calculateSaturationPressure(T) {
+      const p = Math.exp(5.0 * (1.0 - 360.0 / T));
+      return Math.max(0.01, p);
+    }
+
+    /**
+     * 飽和蒸気圧 Psat から対応する沸点/凝縮温度 Tsat を逆算
+     */
+    function calculateSaturationTemperature(P) {
+      const val = 1.0 - Math.log(P) / 5.0;
+      if (val <= 0) return 600;
+      return 360.0 / val;
+    }
+
+    // --- 2. アプリケーション状態管理 ---
+    const appState = {
+      step: 0, // 0: 体験, 1: P-T, 2: P-V, 3: V-T
+      T: 420,  // 初期温度 [K] (気体のみから開始)
+      V: 25.0, // 初期体積 [L]
+      P: 1.40, // 圧力 [×10^5 Pa]
+      
+      // 計算プロパティ
+      Psat: 2.04,
+      phase: 'gas', // 'gas', 'equilibrium', 'liquid'
+      nGas: 1.0,
+      nLiquid: 0.0,
+      gasParticleCount: 60,
+      liquidParticleCount: 0,
+      
+      // 各モードの固定値設定
+      pt_fixed_V: 20.0, // STEP 1での固定体積 (液化開始点 T=401K)
+      pv_fixed_T: 360.0,// STEP 2での固定温度 (Psat=1.00, 液化開始点 V=30.0L)
+      vt_fixed_P: 1.00, // STEP 3での固定圧力 (沸点 Tsat=360K)
+
+      // アニメーション用
+      particles: [],
+      evapEvents: [],
+      condEvents: [],
+      lastTime: 0
+    };
+
+    // --- 3. 状態計算エンジン (calculateState) ---
+    function calculateState() {
+      const mode = appState.step;
+
+      if (mode === 1) {
+        // STEP 1: P-T (V, n 一定)
+        appState.V = appState.pt_fixed_V;
+      } else if (mode === 2) {
+        // STEP 2: P-V (T, n 一定)
+        appState.T = appState.pv_fixed_T;
+      } else if (mode === 3) {
+        // STEP 3: V-T (P, n 一定)
+        const targetP = appState.vt_fixed_P;
+        const Tsat = calculateSaturationTemperature(targetP);
+        
+        if (appState.T >= Tsat) {
+          // 気体領域: V = nRT / P
+          appState.V = (N_TOTAL * R_CONST * appState.T) / targetP;
+          appState.P = targetP;
+          appState.phase = 'gas';
+          appState.nGas = N_TOTAL;
+          appState.nLiquid = 0;
+        } else {
+          // 液体領域
+          const transition = Math.max(0, Math.min(1, (Tsat - appState.T) / 10.0));
+          const vGasAtSat = (N_TOTAL * R_CONST * Tsat) / targetP;
+          const vLiq = V_LIQUID_MOLAR * N_TOTAL;
+          
+          appState.V = vGasAtSat * (1 - transition) + vLiq * transition;
+          appState.P = targetP;
+          
+          if (transition < 0.9) {
+            appState.phase = 'equilibrium';
+            appState.nLiquid = N_TOTAL * transition;
+            appState.nGas = N_TOTAL - appState.nLiquid;
+          } else {
+            appState.phase = 'liquid';
+            appState.nLiquid = N_TOTAL;
+            appState.nGas = 0;
+          }
+        }
+        appState.Psat = calculateSaturationPressure(appState.T);
+        updateParticleCounts();
+        return;
+      }
+
+      // STEP 0, STEP 1, STEP 2 の一般的な状態計算
+      const T = appState.T;
+      const V = appState.V;
+      const Psat = calculateSaturationPressure(T);
+      appState.Psat = Psat;
+
+      const P_ideal = (N_TOTAL * R_CONST * T) / V;
+      const V_liq_total = V_LIQUID_MOLAR * N_TOTAL;
+
+      if (V <= V_liq_total * 1.05) {
+        appState.phase = 'liquid';
+        appState.nLiquid = N_TOTAL;
+        appState.nGas = 0;
+        const deltaV = Math.max(0, V_liq_total - V);
+        appState.P = Psat + 8.0 * (deltaV / V_liq_total + Math.pow(deltaV / V_liq_total, 2) * 5.0);
+      } else if (P_ideal <= Psat) {
+        appState.phase = 'gas';
+        appState.P = P_ideal;
+        appState.nGas = N_TOTAL;
+        appState.nLiquid = 0;
+      } else {
+        appState.phase = 'equilibrium';
+        appState.P = Psat;
+        
+        const num = V - N_TOTAL * V_LIQUID_MOLAR;
+        const den = (R_CONST * T) / Psat - V_LIQUID_MOLAR;
+        let nG = (den > 0.001) ? num / den : 0;
+        nG = Math.max(0, Math.min(N_TOTAL, nG));
+        
+        appState.nGas = nG;
+        appState.nLiquid = N_TOTAL - nG;
+
+        if (appState.nLiquid >= N_TOTAL * 0.92) {
+          appState.phase = 'liquid';
+        }
+      }
+
+      updateParticleCounts();
+    }
+
+    function updateParticleCounts() {
+      const gasFraction = Math.max(0, Math.min(1, appState.nGas / N_TOTAL));
+      appState.gasParticleCount = Math.round(TOTAL_PARTICLES * gasFraction);
+      appState.liquidParticleCount = TOTAL_PARTICLES - appState.gasParticleCount;
+    }
+
+    // --- 4. 分子シミュレーション (Canvas) ---
+    function initParticles() {
+      appState.particles = [];
+      for (let i = 0; i < TOTAL_PARTICLES; i++) {
+        appState.particles.push({
+          x: Math.random() * 300 + 50,
+          y: Math.random() * 150 + 40,
+          vx: (Math.random() - 0.5) * 2,
+          vy: (Math.random() - 0.5) * 2,
+          isGas: true,
+          phaseOffset: Math.random() * Math.PI * 2
+        });
+      }
+      appState.evapEvents = [];
+      appState.condEvents = [];
+    }
+
+    function updateAndDrawMolecules(ctx, width, height, dt) {
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      ctx.restore();
+
+      const containerLeft = 50;
+      const containerRight = width - 50;
+      const containerWidth = containerRight - containerLeft;
+      const containerBottom = height - 25;
+      
+      const minPistonY = 25;
+      const maxPistonY = containerBottom - 18;
+      const vRatio = Math.max(0.01, Math.min(1.0, (appState.V - 1.0) / 59.0));
+      const pistonY = maxPistonY - vRatio * (maxPistonY - minPistonY);
+      const chamberHeight = containerBottom - pistonY;
+
+      const liquidFraction = appState.liquidParticleCount / TOTAL_PARTICLES;
+      const maxLiquidHeight = chamberHeight * 0.85;
+      const liquidHeight = Math.max(0, liquidFraction * maxLiquidHeight);
+      const liquidSurfaceY = containerBottom - liquidHeight;
+
+      // 気相領域
+      ctx.fillStyle = '#f0f9ff';
+      ctx.fillRect(containerLeft, pistonY, containerWidth, containerBottom - pistonY);
+
+      // 液相領域
+      if (liquidHeight > 2) {
+        const grad = ctx.createLinearGradient(0, liquidSurfaceY, 0, containerBottom);
+        grad.addColorStop(0, 'rgba(59, 130, 246, 0.45)');
+        grad.addColorStop(1, 'rgba(29, 78, 216, 0.75)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(containerLeft, liquidSurfaceY, containerWidth, liquidHeight);
+
+        ctx.strokeStyle = '#2563eb';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(containerLeft, liquidSurfaceY);
+        const waveTime = Date.now() * 0.003;
+        for (let x = containerLeft; x <= containerRight; x += 10) {
+          const dy = Math.sin(waveTime + x * 0.05) * 1.5;
+          ctx.lineTo(x, liquidSurfaceY + dy);
+        }
+        ctx.stroke();
+      }
+
+      // シリンダー壁 & ピストン
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(containerLeft, 15);
+      ctx.lineTo(containerLeft, containerBottom);
+      ctx.lineTo(containerRight, containerBottom);
+      ctx.lineTo(containerRight, 15);
+      ctx.stroke();
+
+      ctx.fillStyle = '#64748b';
+      ctx.fillRect(containerLeft - 2, pistonY - 10, containerWidth + 4, 10);
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(containerLeft - 2, pistonY - 10, containerWidth + 4, 10);
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillRect(width / 2 - 8, 5, 16, pistonY - 15);
+      ctx.strokeRect(width / 2 - 8, 5, 16, pistonY - 15);
+
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(width / 2 - 25, 5, 50, 8);
+
+      // 温度による気体分子運動速度
+      const tempNorm = appState.T / 360.0;
+      const speedScale = Math.pow(tempNorm, 1.7) * 1.6;
+
+      for (let i = 0; i < TOTAL_PARTICLES; i++) {
+        const p = appState.particles[i];
+        p.isGas = (i < appState.gasParticleCount);
+      }
+
+      const gasBoundTop = pistonY + 6;
+      const gasBoundBottom = (liquidHeight > 2) ? liquidSurfaceY - 4 : containerBottom - 6;
+      const gasBoundLeft = containerLeft + 8;
+      const gasBoundRight = containerRight - 8;
+
+      let liquidIdx = 0;
+      const liquidCols = Math.floor(containerWidth / 14);
+
+      for (let i = 0; i < TOTAL_PARTICLES; i++) {
+        const p = appState.particles[i];
+
+        if (p.isGas) {
+          p.x += p.vx * speedScale;
+          p.y += p.vy * speedScale;
+
+          if (p.x < gasBoundLeft) { p.x = gasBoundLeft; p.vx = Math.abs(p.vx); }
+          if (p.x > gasBoundRight) { p.x = gasBoundRight; p.vx = -Math.abs(p.vx); }
+          if (p.y < gasBoundTop) { p.y = gasBoundTop; p.vy = Math.abs(p.vy); }
+          if (p.y > gasBoundBottom) { p.y = gasBoundBottom; p.vy = -Math.abs(p.vy); }
+
+          ctx.fillStyle = '#0284c7';
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+          ctx.fill();
+
+          const tailLength = Math.max(1.0, speedScale * 1.8);
+          ctx.strokeStyle = 'rgba(2, 132, 199, 0.4)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p.x - p.vx * tailLength, p.y - p.vy * tailLength);
+          ctx.stroke();
+
+        } else {
+          const col = liquidIdx % liquidCols;
+          const row = Math.floor(liquidIdx / liquidCols);
+          liquidIdx++;
+
+          const targetX = containerLeft + 12 + col * ((containerWidth - 24) / Math.max(1, liquidCols - 1));
+          const targetY = containerBottom - 10 - row * 10;
+          
+          const vibAmp = Math.min(2.2, (appState.T / 350.0) * 1.4);
+          const time = Date.now() * 0.008;
+          p.x = targetX + Math.sin(time + p.phaseOffset) * vibAmp;
+          p.y = targetY + Math.cos(time + p.phaseOffset * 1.5) * vibAmp;
+
+          ctx.fillStyle = '#1d4ed8';
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 4.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#93c5fd';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+
+      // 液面（気液界面）での局所的な蒸発・凝縮アニメーション
+      if (appState.phase === 'equilibrium' || (appState.nLiquid > 0 && appState.nGas > 0)) {
+        if (Math.random() < 0.22) {
+          appState.evapEvents.push({
+            x: containerLeft + 15 + Math.random() * (containerWidth - 30),
+            y: liquidSurfaceY,
+            vy: -(0.8 + Math.random() * 0.8),
+            life: 1.0,
+            maxDist: 14 + Math.random() * 8
+          });
+        }
+
+        if (Math.random() < 0.22) {
+          appState.condEvents.push({
+            x: containerLeft + 15 + Math.random() * (containerWidth - 30),
+            y: liquidSurfaceY - 16,
+            vy: 0.8 + Math.random() * 0.8,
+            life: 1.0
+          });
+        }
+
+        ctx.fillStyle = '#ea580c';
+        ctx.strokeStyle = '#ea580c';
+        for (let i = appState.evapEvents.length - 1; i >= 0; i--) {
+          const ev = appState.evapEvents[i];
+          ev.y += ev.vy;
+          ev.life -= 0.045;
+          if (ev.life <= 0 || (liquidSurfaceY - ev.y) > ev.maxDist) {
+            appState.evapEvents.splice(i, 1);
+            continue;
+          }
+          ctx.globalAlpha = ev.life;
+          ctx.beginPath();
+          ctx.arc(ev.x, ev.y, 3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(ev.x, ev.y + 3);
+          ctx.lineTo(ev.x, ev.y - 3);
+          ctx.lineTo(ev.x - 2, ev.y - 1);
+          ctx.moveTo(ev.x, ev.y - 3);
+          ctx.lineTo(ev.x + 2, ev.y - 1);
+          ctx.stroke();
+        }
+
+        ctx.fillStyle = '#2563eb';
+        ctx.strokeStyle = '#2563eb';
+        for (let i = appState.condEvents.length - 1; i >= 0; i--) {
+          const cv = appState.condEvents[i];
+          cv.y += cv.vy;
+          cv.life -= 0.045;
+          if (cv.life <= 0 || cv.y >= liquidSurfaceY + 2) {
+            appState.condEvents.splice(i, 1);
+            continue;
+          }
+          ctx.globalAlpha = cv.life;
+          ctx.beginPath();
+          ctx.arc(cv.x, cv.y, 3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(cv.x, cv.y - 3);
+          ctx.lineTo(cv.x, cv.y + 3);
+          ctx.lineTo(cv.x - 2, cv.y + 1);
+          ctx.moveTo(cv.x, cv.y + 3);
+          ctx.lineTo(cv.x + 2, cv.y + 1);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1.0;
+      }
+
+      ctx.fillStyle = '#475569';
+      ctx.font = '11px sans-serif';
+      ctx.fillText(`気相領域 (Vgas ≈ ${(appState.V - appState.nLiquid * V_LIQUID_MOLAR).toFixed(1)} L)`, containerLeft + 6, pistonY + 16);
+      if (liquidHeight > 15) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(`液相 (${appState.liquidParticleCount}個)`, containerLeft + 6, containerBottom - 6);
+      }
+    }
+
+    // --- 5. グラフ描画エンジン (Canvas) ---
+    function drawGraph(ctx, width, height) {
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      ctx.restore();
+
+      const padLeft = 50;
+      const padRight = 20;
+      const padTop = 20;
+      const padBottom = 35;
+      const plotW = width - padLeft - padRight;
+      const plotH = height - padTop - padBottom;
+
+      const mode = appState.step;
+
+      function toCanvasX(val, minX, maxX) {
+        return padLeft + ((val - minX) / (maxX - minX)) * plotW;
+      }
+      function toCanvasY(val, minY, maxY) {
+        return padTop + plotH - ((val - minY) / (maxY - minY)) * plotH;
+      }
+
+      // 背景グリッド & 軸
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 1;
+      for (let i = 1; i <= 4; i++) {
+        const gx = padLeft + (plotW / 4) * i;
+        const gy = padTop + (plotH / 4) * i;
+        ctx.beginPath();
+        ctx.moveTo(gx, padTop); ctx.lineTo(gx, padTop + plotH);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(padLeft, gy); ctx.lineTo(padLeft + plotW, gy);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(padLeft, padTop);
+      ctx.lineTo(padLeft, padTop + plotH);
+      ctx.lineTo(padLeft + plotW, padTop + plotH);
+      ctx.stroke();
+
+      ctx.fillStyle = '#334155';
+      ctx.font = '11px sans-serif';
+
+      if (mode === 0 || mode === 1) {
+        // ==================== STEP 1: P - T グラフ (200K ~ 600K) ====================
+        const minT = 200, maxT = 600;
+        const minP = 0.0, maxP = 4.0;
+        const fixedV = appState.step === 0 ? appState.V : appState.pt_fixed_V;
+
+        ctx.fillText('P [×10⁵ Pa]', padLeft - 5, padTop - 6);
+        ctx.fillText('温度 T [K]', padLeft + plotW - 45, padTop + plotH + 30);
+
+        ctx.fillStyle = '#64748b';
+        ctx.font = '10px sans-serif';
+        for (let t = 200; t <= 600; t += 100) {
+          const cx = toCanvasX(t, minT, maxT);
+          ctx.fillText(`${t}`, cx - 8, padTop + plotH + 15);
+        }
+        for (let p = 1.0; p <= 3.0; p += 1.0) {
+          const cy = toCanvasY(p, minP, maxP);
+          ctx.fillText(p.toFixed(1), padLeft - 26, cy + 4);
+        }
+
+        // 1. 飽和蒸気圧曲線 Psat(T)（緑の点線）
+        ctx.strokeStyle = '#0d9488';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        let isFirst = true;
+        for (let t = minT; t <= maxT; t += 2) {
+          const ps = calculateSaturationPressure(t);
+          if (ps > maxP) {
+            const prevT = t - 2;
+            const prevPs = calculateSaturationPressure(prevT);
+            const ratio = (maxP - prevPs) / (ps - prevPs);
+            const crossT = prevT + ratio * 2;
+            const crossX = toCanvasX(crossT, minT, maxT);
+            const crossY = toCanvasY(maxP, minP, maxP);
+            ctx.lineTo(crossX, crossY);
+            break;
+          }
+          const cx = toCanvasX(t, minT, maxT);
+          const cy = toCanvasY(ps, minP, maxP);
+          if (isFirst) {
+            ctx.moveTo(cx, cy);
+            isFirst = false;
+          } else {
+            ctx.lineTo(cx, cy);
+          }
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 2. 理想気体直線 P = nRT/V（灰色破線）
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        for (let t = minT; t <= maxT; t += 10) {
+          const pi = (N_TOTAL * R_CONST * t) / fixedV;
+          const cx = toCanvasX(t, minT, maxT);
+          const cy = toCanvasY(pi, minP, maxP);
+          if (t === minT) ctx.moveTo(cx, cy);
+          else ctx.lineTo(cx, cy);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 3. 実際の状態変化線（青太実線）
+        let tCond = 401;
+        for (let t = 600; t >= 200; t -= 0.5) {
+          const pi = (N_TOTAL * R_CONST * t) / fixedV;
+          const ps = calculateSaturationPressure(t);
+          if (pi > ps) {
+            tCond = t;
+            break;
+          }
+        }
+
+        ctx.strokeStyle = '#2563eb';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        for (let t = minT; t <= maxT; t += 2) {
+          let pActual;
+          const pi = (N_TOTAL * R_CONST * t) / fixedV;
+          const ps = calculateSaturationPressure(t);
+          if (t < tCond) {
+            pActual = ps;
+          } else {
+            pActual = pi;
+          }
+          const cx = toCanvasX(t, minT, maxT);
+          const cy = toCanvasY(pActual, minP, maxP);
+          if (t === minT) ctx.moveTo(cx, cy);
+          else ctx.lineTo(cx, cy);
+        }
+        ctx.stroke();
+
+        // 液化開始点マーカー
+        const condX = toCanvasX(tCond, minT, maxT);
+        const condY = toCanvasY((N_TOTAL * R_CONST * tCond) / fixedV, minP, maxP);
+        ctx.fillStyle = '#d97706';
+        ctx.beginPath();
+        ctx.arc(condX, condY, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#b45309';
+        ctx.font = '10px sans-serif';
+        ctx.fillText(`液化開始点 (${Math.round(tCond)}K)`, condX - 25, condY - 8);
+
+        // 領域ラベル
+        ctx.fillStyle = 'rgba(2, 132, 199, 0.8)';
+        ctx.font = '11px sans-serif';
+        ctx.fillText('気体のみ (P ∝ T)', toCanvasX(480, minT, maxT), toCanvasY(2.6, minP, maxP));
+        ctx.fillStyle = 'rgba(13, 148, 136, 0.9)';
+        ctx.fillText('気液平衡 (P = Psat)', toCanvasX(240, minT, maxT), toCanvasY(0.7, minP, maxP));
+
+        const curX = toCanvasX(appState.T, minT, maxT);
+        const curY = toCanvasY(appState.P, minP, maxP);
+        drawCurrentPoint(ctx, curX, curY, padLeft, plotW, padTop, plotH);
+
+      } else if (mode === 2) {
+        // ==================== STEP 2: P - V グラフ (0 ~ 60L, T=360K) ====================
+        const minV = 0, maxV = 60;
+        const minP = 0, maxP = 3.5;
+        const fixedT = appState.pv_fixed_T;
+        const Psat = calculateSaturationPressure(fixedT); // 1.00
+        const Vcond = (N_TOTAL * R_CONST * fixedT) / Psat; // 30.0L
+        const Vliq = V_LIQUID_MOLAR * N_TOTAL;
+
+        ctx.fillText('P [×10⁵ Pa]', padLeft - 5, padTop - 6);
+        ctx.fillText('体積 V [L]', padLeft + plotW - 40, padTop + plotH + 30);
+
+        ctx.fillStyle = '#64748b';
+        ctx.font = '10px sans-serif';
+        for (let v = 10; v <= 60; v += 10) {
+          const cx = toCanvasX(v, minV, maxV);
+          ctx.fillText(`${v}`, cx - 6, padTop + plotH + 15);
+        }
+        for (let p = 1.0; p <= 3.0; p += 1.0) {
+          const cy = toCanvasY(p, minP, maxP);
+          ctx.fillText(p.toFixed(1), padLeft - 24, cy + 4);
+        }
+
+        // 1. 【修正1】理想気体双曲線 P = nRT/V (灰色破線・上端突き抜けで水平化を完全排除)
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        
+        // P=maxP となる体積のカットオフ（上端との交点から開始）
+        const vCut = (N_TOTAL * R_CONST * fixedT) / maxP; // 約 8.55 L
+        const startX = toCanvasX(vCut, minV, maxV);
+        const startY = toCanvasY(maxP, minP, maxP);
+        ctx.moveTo(startX, startY);
+
+        for (let v = Math.ceil(vCut); v <= maxV; v += 0.5) {
+          const pi = (N_TOTAL * R_CONST * fixedT) / v;
+          const cx = toCanvasX(v, minV, maxV);
+          const cy = toCanvasY(pi, minP, maxP);
+          ctx.lineTo(cx, cy);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 2. 実際の状態変化線
+        ctx.strokeStyle = '#2563eb';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+
+        // 液体領域
+        const pTop = 3.4;
+        const cxTop = toCanvasX(Vliq * 0.7, minV, maxV);
+        const cyTop = toCanvasY(pTop, minP, maxP);
+        ctx.moveTo(cxTop, cyTop);
+
+        const cxLiq = toCanvasX(Vliq, minV, maxV);
+        const cyLiq = toCanvasY(Psat, minP, maxP);
+        ctx.lineTo(cxLiq, cyLiq);
+
+        // 気液平衡領域 (水平線)
+        const cxCond = toCanvasX(Vcond, minV, maxV);
+        ctx.lineTo(cxCond, cyLiq);
+
+        // 気体領域 (双曲線)
+        for (let v = Vcond; v <= maxV; v += 0.5) {
+          const pi = (N_TOTAL * R_CONST * fixedT) / v;
+          const cx = toCanvasX(v, minV, maxV);
+          const cy = toCanvasY(pi, minP, maxP);
+          ctx.lineTo(cx, cy);
+        }
+        ctx.stroke();
+
+        // 液化開始点
+        ctx.fillStyle = '#d97706';
+        ctx.beginPath();
+        ctx.arc(cxCond, cyLiq, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillText(`液化開始 (${Vcond.toFixed(0)}L)`, cxCond - 15, cyLiq - 8);
+
+        // 領域ラベル
+        ctx.fillStyle = 'rgba(2, 132, 199, 0.9)';
+        ctx.fillText('低圧側・気体 (P ∝ 1/V)', toCanvasX(38, minV, maxV), toCanvasY(1.3, minP, maxP));
+        ctx.fillStyle = 'rgba(13, 148, 136, 0.9)';
+        ctx.fillText('気液平衡 (P = Psat 一定)', toCanvasX((Vliq + Vcond)/2 - 5, minV, maxV), toCanvasY(Psat + 0.25, minP, maxP));
+        ctx.fillStyle = 'rgba(37, 99, 235, 0.9)';
+        ctx.fillText('高圧側・液体', toCanvasX(Vliq + 1.0, minV, maxV), toCanvasY(2.8, minP, maxP));
+
+        const curX = toCanvasX(appState.V, minV, maxV);
+        const curY = toCanvasY(appState.P, minP, maxP);
+        drawCurrentPoint(ctx, curX, curY, padLeft, plotW, padTop, plotH);
+
+      } else if (mode === 3) {
+        // ==================== STEP 3: V - T グラフ (200~600K, 0~60L, P=1.00) ====================
+        const minT = 200, maxT = 600;
+        const minV = 0, maxV = 60;
+        const fixedP = appState.vt_fixed_P;
+        const Tsat = calculateSaturationTemperature(fixedP); // 360K
+        const Vliq = V_LIQUID_MOLAR * N_TOTAL;
+
+        ctx.fillText('体積 V [L]', padLeft - 5, padTop - 6);
+        ctx.fillText('温度 T [K]', padLeft + plotW - 45, padTop + plotH + 30);
+
+        ctx.fillStyle = '#64748b';
+        ctx.font = '10px sans-serif';
+        for (let t = 200; t <= 600; t += 100) {
+          const cx = toCanvasX(t, minT, maxT);
+          ctx.fillText(`${t}`, cx - 8, padTop + plotH + 15);
+        }
+        for (let v = 10; v <= 50; v += 10) {
+          const cy = toCanvasY(v, minV, maxV);
+          ctx.fillText(`${v}`, padLeft - 22, cy + 4);
+        }
+
+        // 1. 理想気体直線 V = nRT/P (灰色破線)
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        for (let t = minT; t <= maxT; t += 10) {
+          const vi = (N_TOTAL * R_CONST * t) / fixedP;
+          const cx = toCanvasX(t, minT, maxT);
+          const cy = toCanvasY(vi, minV, maxV);
+          if (t === minT) ctx.moveTo(cx, cy);
+          else ctx.lineTo(cx, cy);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 2. 実際の状態変化線
+        ctx.strokeStyle = '#2563eb';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+
+        // 低温液体側
+        const cxMinT = toCanvasX(minT, minT, maxT);
+        const cyLiq = toCanvasY(Vliq, minV, maxV);
+        ctx.moveTo(cxMinT, cyLiq);
+
+        const cxTsat = toCanvasX(Tsat, minT, maxT);
+        ctx.lineTo(cxTsat, cyLiq);
+
+        // 飽和温度 Tsat での凝縮段差
+        const vGasAtSat = (N_TOTAL * R_CONST * Tsat) / fixedP;
+        const cyGasSat = toCanvasY(vGasAtSat, minV, maxV);
+        ctx.lineTo(cxTsat, cyGasSat);
+
+        // 高温気体側
+        for (let t = Tsat; t <= maxT; t += 5) {
+          const vi = (N_TOTAL * R_CONST * t) / fixedP;
+          const cx = toCanvasX(t, minT, maxT);
+          const cy = toCanvasY(vi, minV, maxV);
+          ctx.lineTo(cx, cy);
+        }
+        ctx.stroke();
+
+        // 凝縮温度マーカー
+        ctx.fillStyle = '#d97706';
+        ctx.beginPath();
+        ctx.arc(cxTsat, cyGasSat, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillText(`凝縮点 (${Tsat.toFixed(0)} K)`, cxTsat - 30, cyGasSat - 8);
+
+        // 領域ラベル
+        ctx.fillStyle = 'rgba(2, 132, 199, 0.9)';
+        ctx.fillText('気体 (V ∝ T 膨張)', toCanvasX(480, minT, maxT), toCanvasY(44, minV, maxV));
+        ctx.fillStyle = 'rgba(37, 99, 235, 0.9)';
+        ctx.fillText('液体主体 (V ≈ 一定 ≠ 0)', toCanvasX(230, minT, maxT), toCanvasY(6.5, minV, maxV));
+
+        const curX = toCanvasX(appState.T, minT, maxT);
+        const curY = toCanvasY(appState.V, minV, maxV);
+        drawCurrentPoint(ctx, curX, curY, padLeft, plotW, padTop, plotH);
+      }
+    }
+
+    /**
+     * グラフ上の現在位置描画
+     */
+    function drawCurrentPoint(ctx, cx, cy, padLeft, plotW, padTop, plotH) {
+      const clampedX = Math.max(padLeft, Math.min(padLeft + plotW, cx));
+      const clampedY = Math.max(padTop, Math.min(padTop + plotH, cy));
+
+      ctx.fillStyle = 'rgba(220, 38, 38, 0.25)';
+      ctx.beginPath();
+      ctx.arc(clampedX, clampedY, 9, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#dc2626';
+      ctx.beginPath();
+      ctx.arc(clampedX, clampedY, 5.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = '#dc2626';
+      ctx.font = 'bold 11px sans-serif';
+      if (clampedX > padLeft + plotW - 36) {
+        ctx.textAlign = 'right';
+        ctx.fillText('現在', clampedX - 8, clampedY + 16);
+      } else {
+        ctx.textAlign = 'left';
+        ctx.fillText('現在', clampedX + 8, clampedY + 16);
+      }
+      ctx.textAlign = 'start';
+    }
+
+    // --- 6. UI 更新エンジン (updateUI) ---
+    function updateUI() {
+      document.getElementById('val-t').textContent = Math.round(appState.T);
+      document.getElementById('val-t-c').textContent = Math.round(appState.T - 273.15);
+      document.getElementById('val-p').textContent = appState.P.toFixed(2);
+      document.getElementById('val-psat').textContent = appState.Psat.toFixed(2);
+      document.getElementById('val-v').textContent = appState.V.toFixed(1);
+
+      document.getElementById('label-t').textContent = Math.round(appState.T);
+      document.getElementById('label-v').textContent = appState.V.toFixed(1);
+
+      document.getElementById('slider-t').value = appState.T;
+      document.getElementById('slider-v').value = appState.V;
+
+      const badge = document.getElementById('phase-badge');
+      badge.className = 'phase-badge';
+      if (appState.phase === 'gas') {
+        badge.classList.add('phase-gas');
+        badge.textContent = '状態：気体のみ';
+      } else if (appState.phase === 'equilibrium') {
+        badge.classList.add('phase-eq');
+        badge.textContent = '状態：気液平衡';
+      } else {
+        badge.classList.add('phase-liquid');
+        badge.textContent = '状態：液体主体';
+      }
+
+      const gasPct = Math.round((appState.gasParticleCount / TOTAL_PARTICLES) * 100);
+      const liqPct = 100 - gasPct;
+      const barGas = document.getElementById('bar-gas');
+      const barLiq = document.getElementById('bar-liquid');
+      barGas.style.width = `${gasPct}%`;
+      barGas.textContent = `気体: ${appState.gasParticleCount}個 (${gasPct}%)`;
+      barLiq.style.width = `${liqPct}%`;
+      barLiq.textContent = liqPct > 0 ? `液体: ${appState.liquidParticleCount}個 (${liqPct}%)` : '';
+
+      const speedLabel = document.getElementById('molecule-speed-label');
+      if (appState.T >= 480) speedLabel.textContent = '分子運動: 非常に激しい（超高速）';
+      else if (appState.T >= 360) speedLabel.textContent = '分子運動: 活発（高速）';
+      else if (appState.T >= 280) speedLabel.textContent = '分子運動: 中程度';
+      else speedLabel.textContent = '分子運動: 穏やか（遅い）';
+
+      // 数式ハイライト（縦3行）
+      document.getElementById('formula-ideal').classList.toggle('active', appState.phase === 'gas');
+      document.getElementById('formula-sat').classList.toggle('active', appState.phase === 'equilibrium');
+      document.getElementById('formula-liquid').classList.toggle('active', appState.phase === 'liquid');
+
+      const formulaNote = document.getElementById('formula-note');
+      if (appState.phase === 'gas') {
+        formulaNote.textContent = '【気体領域】すべての分子が気体として振る舞い、状態方程式 PV = nRT が完全に成立します。';
+      } else if (appState.phase === 'equilibrium') {
+        formulaNote.textContent = '【気液平衡】系全体に単純に PV=nRT を適用することはできません。圧力は温度で決まる「飽和蒸気圧 Psat(T)」に保たれます（気相部分のみ PVgas = ngas RT が成立）。';
+      } else {
+        formulaNote.textContent = '【液体領域】液体は気体に比べて非常に圧縮されにくいため、わずかな体積減少で圧力が急上昇します。';
+      }
+
+      updateExplanation();
+    }
+
+    function updateExplanation() {
+      const expEl = document.getElementById('explanation-text');
+      const mode = appState.step;
+
+      if (mode === 0) {
+        if (appState.phase === 'gas') {
+          expEl.textContent = '【気体のみ】温度が高く、体積も十分にあるため、すべての分子が活発に熱運動して容器全体を飛び回っています。分子同士の引力に打ち勝ち、液体は生じません。';
+        } else if (appState.phase === 'equilibrium') {
+          expEl.textContent = '【気液平衡】一部の分子が凝縮して液体になりました。液面では「脱出する蒸発分子」と「捕獲される凝縮分子」の数が釣り合っており、マクロには変化がないように見えますが、ミクロでは常に動的な交換が起こっています。圧力は飽和蒸気圧に対応します。';
+        } else {
+          expEl.textContent = '【液体主体】ほとんどの分子が凝縮して液体になりました。液体分子同士は密着しているため、これ以上体積を縮めるには非常に大きな圧力が必要です。';
+        }
+      } else if (mode === 1) {
+        if (appState.phase === 'gas') {
+          expEl.textContent = '【P-T: 高温側・気体領域】温度Tの上昇とともに分子の衝突速度が増し、圧力Pは直線的に上昇します（P ∝ T）。理想気体の破線と一致しています。';
+        } else {
+          expEl.textContent = '【P-T: 低温側・気液平衡】温度を下げて液化開始点を下回ると、気体分子の一部が液体へと凝縮します。気体分子数が減るため、圧力は理想気体の直線から下方に大きく外れ、温度ごとの「飽和蒸気圧曲線 Psat(T)」に沿って低下します。';
+        }
+      } else if (mode === 2) {
+        if (appState.phase === 'gas') {
+          expEl.textContent = '【P-V: 低圧側・気体領域】体積Vを小さくする（圧縮する）と、分子の衝突頻度が増えて圧力Pが双曲線を描いて上昇します（ボイルの法則: P ∝ 1/V）。';
+        } else if (appState.phase === 'equilibrium') {
+          expEl.textContent = '【P-V: 気液平衡（平坦領域）】液化開始点を超えてさらに圧縮しても、圧力は上昇せず飽和蒸気圧 Psat でほぼ一定を保ちます！圧縮された分の気体分子が次々と液体へと姿を変えるため、気相の圧力が保たれるからです。';
+        } else {
+          expEl.textContent = '【P-V: 高圧側・液体領域】気体がすべて液体になりました。液体は分子同士が隙間なく詰まっているため圧縮されにくく、体積をわずかに縮めようとするだけで圧力が急激に跳ね上がります。';
+        }
+      } else if (mode === 3) {
+        if (appState.phase === 'gas') {
+          expEl.textContent = '【V-T: 高温側・気体領域】一定圧力のもとで温度Tを上げると、気体分子が勢いよくピストンを押し広げ、体積Vは直線的に増加します（シャルルの法則: V ∝ T）。';
+        } else {
+          expEl.textContent = '【V-T: 低温側・液体領域】凝縮温度（沸点）を下回ると、気体分子が一気に凝縮して体積が劇的に収縮します。液体になった後は、温度を下げても体積はほとんど変化しません（V ≈ Vliq で一定、0にはなりません）。';
+        }
+      }
+    }
+
+    // --- 7. ステップ切り替え & クイック操作（プリセット）の更新 ---
+    function setStep(newStep) {
+      appState.step = newStep;
+
+      document.querySelectorAll('.step-btn').forEach(btn => {
+        btn.classList.toggle('active', parseInt(btn.dataset.step) === newStep);
+      });
+
+      const condTitle = document.getElementById('condition-title');
+      const condTag = document.getElementById('condition-tag');
+      const groupTemp = document.getElementById('group-temp');
+      const groupVol = document.getElementById('group-vol');
+      const graphTitle = document.getElementById('graph-title');
+      const step0Prompt = document.getElementById('step0-next-prompt');
+
+      step0Prompt.classList.toggle('hidden', newStep !== 0);
+
+      if (newStep === 0) {
+        condTitle.textContent = 'STEP 0: 気液平衡を体験（分子の動きと相変化）';
+        condTag.textContent = 'T・V操作可能 / n一定';
+        graphTitle.textContent = 'P - T 状態変化グラフ（リアルタイム連動）';
+        groupTemp.classList.remove('hidden');
+        groupVol.classList.remove('hidden');
+        
+        appState.T = 420;
+        appState.V = 25.0;
+
+        renderPresets([
+          { label: '① 初期状態（気体のみ 420K, 25L）', action: () => { appState.T = 420; appState.V = 25.0; } },
+          { label: '② 温度を下げる（冷却凝縮 280K）', action: () => { appState.T = 280; appState.V = 25.0; } },
+          { label: '③ 体積を縮める（圧縮凝縮 8.0L）', action: () => { appState.T = 420; appState.V = 8.0; } },
+          { label: '④ 高温加熱（再蒸発 550K）', action: () => { appState.T = 550; appState.V = 25.0; } }
+        ]);
+      } else if (newStep === 1) {
+        condTitle.textContent = 'STEP 1: P - T グラフの学習';
+        condTag.textContent = '条件: 体積 V=20.0L・物質量 n=1.0mol 一定';
+        graphTitle.textContent = 'P - T グラフ (V=20.0L 一定)';
+        groupTemp.classList.remove('hidden');
+        groupVol.classList.add('hidden');
+        
+        appState.T = 480;
+        appState.V = appState.pt_fixed_V; // 20.0L
+
+        renderPresets([
+          { label: '高温側（気体領域 550K）', action: () => { appState.T = 550; } },
+          { label: '液化開始点 (401K)', action: () => { appState.T = 401; } },
+          { label: '低温側（気液平衡 300K）', action: () => { appState.T = 300; } }
+        ]);
+      } else if (newStep === 2) {
+        condTitle.textContent = 'STEP 2: P - V グラフの学習';
+        condTag.textContent = '条件: 温度 T=360K・物質量 n=1.0mol 一定 (Psat=1.00)';
+        graphTitle.textContent = 'P - V グラフ (T=360K 一定)';
+        groupTemp.classList.add('hidden');
+        groupVol.classList.remove('hidden');
+
+        appState.T = appState.pv_fixed_T; // 360K
+        appState.V = 50.0;
+
+        renderPresets([
+          { label: '低圧側（気体領域 50.0L）', action: () => { appState.V = 50.0; } },
+          { label: '液化開始点 (30.0L)', action: () => { appState.V = 30.0; } },
+          { label: '気液平衡（P一定 15.0L）', action: () => { appState.V = 15.0; } },
+          { label: '高圧側（液体主体 1.0L）', action: () => { appState.V = 1.0; } }
+        ]);
+      } else if (newStep === 3) {
+        condTitle.textContent = 'STEP 3: V - T グラフの学習';
+        condTag.textContent = '条件: 圧力 P=1.00×10⁵Pa・物質量 n=1.0mol 一定';
+        graphTitle.textContent = 'V - T グラフ (P=1.00×10⁵Pa 一定)';
+        groupTemp.classList.remove('hidden');
+        groupVol.classList.add('hidden');
+
+        appState.T = 500;
+        appState.P = appState.vt_fixed_P; // 1.00
+
+        renderPresets([
+          { label: '高温膨張（気体 520K）', action: () => { appState.T = 520; } },
+          { label: '凝縮点・沸点 (360K)', action: () => { appState.T = 360; } },
+          { label: '低温側（液体 250K）', action: () => { appState.T = 250; } }
+        ]);
+      }
+
+      calculateState();
+      updateUI();
+    }
+
+    function renderPresets(presetList) {
+      const container = document.getElementById('presets-container');
+      container.innerHTML = '';
+      presetList.forEach(p => {
+        const btn = document.createElement('button');
+        btn.className = 'preset-btn';
+        btn.textContent = p.label;
+        btn.addEventListener('click', () => {
+          p.action();
+          calculateState();
+          updateUI();
+        });
+        container.appendChild(btn);
+      });
+    }
+
+    // --- 8. イベントリスナーと初期化 ---
+    function setupEventListeners() {
+      document.querySelectorAll('.step-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          setStep(parseInt(btn.dataset.step));
+        });
+      });
+
+      document.getElementById('btn-goto-step1').addEventListener('click', () => {
+        setStep(1);
+      });
+
+      const sliderT = document.getElementById('slider-t');
+      sliderT.addEventListener('input', (e) => {
+        appState.T = parseFloat(e.target.value);
+        calculateState();
+        updateUI();
+      });
+
+      const sliderV = document.getElementById('slider-v');
+      sliderV.addEventListener('input', (e) => {
+        appState.V = parseFloat(e.target.value);
+        calculateState();
+        updateUI();
+      });
+
+      window.addEventListener('resize', handleResize);
+    }
+
+    function handleResize() {
+      const mCanvas = document.getElementById('moleculeCanvas');
+      const gCanvas = document.getElementById('graphCanvas');
+      const dpr = window.devicePixelRatio || 1;
+
+      [mCanvas, gCanvas].forEach(canvas => {
+        const rect = canvas.parentElement.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        const ctx = canvas.getContext('2d');
+        ctx.resetTransform();
+        ctx.scale(dpr, dpr);
+      });
+
+      drawGraph(gCanvas.getContext('2d'), gCanvas.parentElement.clientWidth, gCanvas.parentElement.clientHeight);
+    }
+
+    // --- 9. アニメーションメインループ ---
+    function animationLoop(timestamp) {
+      if (!appState.lastTime) appState.lastTime = timestamp;
+      const dt = Math.min(0.1, (timestamp - appState.lastTime) / 1000);
+      appState.lastTime = timestamp;
+
+      const mCanvas = document.getElementById('moleculeCanvas');
+      const gCanvas = document.getElementById('graphCanvas');
+
+      const mCtx = mCanvas.getContext('2d');
+      const gCtx = gCanvas.getContext('2d');
+
+      const width = mCanvas.parentElement.clientWidth;
+      const height = mCanvas.parentElement.clientHeight;
+
+      updateAndDrawMolecules(mCtx, width, height, dt);
+      drawGraph(gCtx, width, height);
+
+      requestAnimationFrame(animationLoop);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initParticles();
+      setupEventListeners();
+      handleResize();
+      setStep(0);
+      requestAnimationFrame(animationLoop);
+    });
+  </script>
+</body>
+</html>
