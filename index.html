@@ -1435,7 +1435,10 @@
     }
 
     // --- 6. UI 更新エンジン (updateUI) ---
+    let graphDirty = true; // true のとき、次のフレームでグラフを描き直す
+
     function updateUI() {
+      graphDirty = true;
       document.getElementById('val-t').textContent = Math.round(appState.T);
       document.getElementById('val-t-c').textContent = Math.round(appState.T - 273.15);
       document.getElementById('val-p').textContent = appState.P.toFixed(2);
@@ -1677,7 +1680,11 @@
 
       updateAndDrawMolecules(mCtx, width, height, dt);
       // グラフはグラフ自身の枠の大きさで描く（分子の canvas と幅が違う場合がある）
-      drawGraph(gCtx, gCanvas.parentElement.clientWidth, gCanvas.parentElement.clientHeight);
+      // グラフは状態が変わったときだけ描き直す
+      if (graphDirty) {
+        drawGraph(gCtx, gCanvas.parentElement.clientWidth, gCanvas.parentElement.clientHeight);
+        graphDirty = false;
+      }
 
       requestAnimationFrame(animationLoop);
     }
