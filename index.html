@@ -501,6 +501,13 @@
       display: inline-block;
     }
 
+    .canvas-note {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+
     .dot-evap { background: #ea580c; }
     .dot-cond { background: #2563eb; }
 
@@ -598,6 +605,7 @@
           <div class="legend-item"><span class="dot dot-cond"></span><span>凝縮 (液面へ捕獲)</span></div>
           <div class="legend-item" style="color: var(--text-muted); font-weight: 600;">気液平衡: 蒸発速度 ＝ 凝縮速度</div>
         </div>
+        <p class="canvas-note">※ 液体の体積は最大でも 0.8 L と小さいため、液体の層は粒子が見えるように実際より厚めに描いています。</p>
       </section>
 
       <!-- グラフ描画Canvas -->
@@ -872,14 +880,20 @@
       
       const minPistonY = 25;
       const maxPistonY = containerBottom - 18;
-      const vRatio = Math.max(0.01, Math.min(1.0, (appState.V - V_MIN) / (V_MAX - V_MIN)));
-      const pistonY = maxPistonY - vRatio * (maxPistonY - minPistonY);
-      const chamberHeight = containerBottom - pistonY;
+      const liquidCols = Math.floor(containerWidth / 14);
 
-      const liquidFraction = appState.liquidParticleCount / TOTAL_PARTICLES;
-      const maxLiquidHeight = chamberHeight * 0.85;
-      const liquidHeight = Math.max(0, liquidFraction * maxLiquidHeight);
+      // 液体の層の高さ: 実際の液体の体積は小さい（最大 0.8 L）ので、体積どおりに描くと粒子が収まらない。
+      // 粒子を並べるのに必要な最小の厚さだけを確保する（液体のみを圧縮すると行の間隔を詰める）
+      const vLiqTotal = V_LIQUID_MOLAR * N_TOTAL;
+      const liquidRowGap = (appState.phase === 'liquid') ? 10 * Math.min(1, appState.V / vLiqTotal) : 10;
+      const liquidRows = Math.ceil(appState.liquidParticleCount / liquidCols);
+      const liquidHeight = (appState.liquidParticleCount > 0) ? liquidRows * liquidRowGap + 4 : 0;
       const liquidSurfaceY = containerBottom - liquidHeight;
+
+      // ピストンの位置: 液体の層の上に、気体の体積に比例した高さの気相をのせる
+      const vGas = Math.max(0, appState.V - appState.nLiquid * V_LIQUID_MOLAR);
+      const gasSpace = (appState.phase === 'liquid') ? 0 : 18 + (vGas / (V_MAX - V_MIN)) * (maxPistonY - minPistonY);
+      const pistonY = Math.max(minPistonY, containerBottom - liquidHeight - gasSpace);
 
       // 気相領域
       ctx.fillStyle = '#f0f9ff';
@@ -946,7 +960,6 @@
       const gasBoundRight = containerRight - 8;
 
       let liquidIdx = 0;
-      const liquidCols = Math.floor(containerWidth / 14);
 
       for (let i = 0; i < TOTAL_PARTICLES; i++) {
         const p = appState.particles[i];
@@ -979,7 +992,7 @@
           liquidIdx++;
 
           const targetX = containerLeft + 12 + col * ((containerWidth - 24) / Math.max(1, liquidCols - 1));
-          const targetY = containerBottom - 10 - row * 10;
+          const targetY = containerBottom - 10 - row * liquidRowGap;
           
           const vibAmp = Math.min(2.2, (appState.T / 350.0) * 1.4);
           const time = Date.now() * 0.008;
@@ -1068,7 +1081,9 @@
 
       ctx.fillStyle = '#475569';
       ctx.font = '11px sans-serif';
-      ctx.fillText(`気相領域 (Vgas ≈ ${(appState.V - appState.nLiquid * V_LIQUID_MOLAR).toFixed(1)} L)`, containerLeft + 6, pistonY + 16);
+      if (appState.phase !== 'liquid' && gasSpace >= 20) {
+        ctx.fillText(`気相領域 (Vgas ≈ ${vGas.toFixed(1)} L)`, containerLeft + 6, pistonY + 16);
+      }
       if (liquidHeight > 15) {
         ctx.fillStyle = '#ffffff';
         ctx.fillText(`液相 (${appState.liquidParticleCount}個)`, containerLeft + 6, containerBottom - 6);
