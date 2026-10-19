@@ -803,7 +803,8 @@
       const P_ideal = (N_TOTAL * R_CONST * T) / V;
       const V_liq_total = V_LIQUID_MOLAR * N_TOTAL;
 
-      if (V <= V_liq_total * 1.05) {
+      if (V <= V_liq_total) {
+        // 容器が液体だけで満たされている（気体が存在できる空間がない）
         appState.phase = 'liquid';
         appState.nLiquid = N_TOTAL;
         appState.nGas = 0;
@@ -825,10 +826,7 @@
         
         appState.nGas = nG;
         appState.nLiquid = N_TOTAL - nG;
-
-        if (appState.nLiquid >= N_TOTAL * 0.92) {
-          appState.phase = 'liquid';
-        }
+        // 気体が少しでも残っていれば気液平衡（P = Psat）。液体がほとんどでも「液体のみ」にはしない
       }
 
       updateParticleCounts();
@@ -836,8 +834,13 @@
 
     function updateParticleCounts() {
       const gasFraction = Math.max(0, Math.min(1, appState.nGas / N_TOTAL));
-      appState.gasParticleCount = Math.round(TOTAL_PARTICLES * gasFraction);
-      appState.liquidParticleCount = TOTAL_PARTICLES - appState.gasParticleCount;
+      let gasCount = Math.round(TOTAL_PARTICLES * gasFraction);
+      // 気液平衡のときは、四捨五入で気体または液体が 0 個に見えないよう、どちらも1個以上表示する
+      if (appState.phase === 'equilibrium') {
+        gasCount = Math.max(1, Math.min(TOTAL_PARTICLES - 1, gasCount));
+      }
+      appState.gasParticleCount = gasCount;
+      appState.liquidParticleCount = TOTAL_PARTICLES - gasCount;
     }
 
     // --- 4. 分子シミュレーション (Canvas) ---
@@ -1459,10 +1462,10 @@
         badge.textContent = '状態：気体のみ';
       } else if (appState.phase === 'equilibrium') {
         badge.classList.add('phase-eq');
-        badge.textContent = '状態：気液平衡';
+        badge.textContent = (appState.nLiquid >= N_TOTAL * 0.9) ? '状態：気液平衡（ほとんど液体）' : '状態：気液平衡';
       } else {
         badge.classList.add('phase-liquid');
-        badge.textContent = '状態：液体主体';
+        badge.textContent = '状態：液体のみ';
       }
 
       const gasPct = Math.round((appState.gasParticleCount / TOTAL_PARTICLES) * 100);
@@ -1501,7 +1504,7 @@
       0: {
         gas: '【気体のみ】温度が高く、体積も十分にあるため、すべての分子が活発に熱運動して容器全体を飛び回っています。分子同士の引力に打ち勝ち、液体は生じません。',
         equilibrium: '【気液平衡】一部の分子が凝縮して液体になりました。液面では「脱出する蒸発分子」と「捕獲される凝縮分子」の数が釣り合っており、マクロには変化がないように見えますが、ミクロでは常に動的な交換が起こっています。圧力は飽和蒸気圧に対応します。',
-        liquid: '【液体主体】ほとんどの分子が凝縮して液体になりました。液体分子同士は密着しているため、これ以上体積を縮めるには非常に大きな圧力が必要です。'
+        liquid: '【液体のみ】すべての分子が凝縮して液体になり、容器は液体で満たされています。液体分子同士は密着しているため、これ以上体積を縮めるには非常に大きな圧力が必要です。'
       },
       1: {
         gas: '【P-T: 高温側・気体領域】温度Tの上昇とともに分子の衝突速度が増し、圧力Pは直線的に上昇します（P ∝ T）。理想気体の破線と一致しています。',
@@ -1563,7 +1566,7 @@
           { label: '低圧側（気体領域 50.0L）', action: () => { appState.V = 50.0; } },
           { label: '液化開始点 (30.0L)', action: () => { appState.V = 30.0; } },
           { label: '気液平衡（P一定 15.0L）', action: () => { appState.V = 15.0; } },
-          { label: '高圧側（液体主体 1.0L）', action: () => { appState.V = 1.0; } }
+          { label: 'ほとんど液体（まだ気液平衡 1.0L）', action: () => { appState.V = 1.0; } }
         ]
       },
       3: {
