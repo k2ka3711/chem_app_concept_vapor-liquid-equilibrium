@@ -728,6 +728,16 @@
     const TOTAL_PARTICLES = 60; // 視覚化用総分子数
     const V_LIQUID_MOLAR = 0.8; // 液体1molあたりの体積 [L]
     const LIQUID_STIFFNESS = 10.0; // 液体を体積の割合で1だけ縮めたときの圧力上昇 [×10^5 Pa]（模式的な値）
+    // 仮想物質の蒸気圧モデル Psat(T) = exp(PSAT_B · (1 − PSAT_T_REF / T))（PSAT_T_REF で 1.00×10^5 Pa）
+    const PSAT_B = 5.0;
+    const PSAT_T_REF = 360.0; // [K]
+    const NEARLY_LIQUID_FRACTION = 0.9; // 気液平衡でこの割合以上が液体なら「ほとんど液体」と付記する
+    // 描画の調整値
+    const GAS_SPEED_AT_REF = 1.6;  // PSAT_T_REF での気体分子の速さ [px/フレーム]
+    const EVENT_RATE = 0.22;       // 蒸発・凝縮の矢印が1フレーム(1/60秒)に出る確率
+    const EVENT_FADE = 0.045;      // 矢印が1フレームで薄くなる量
+    const LIQUID_CELL_PX = 14;     // 液体の粒子を並べる横の間隔 [px]
+    const GAS_SPACE_MIN_PX = 18;   // 気体があるときの気相の最小の高さ [px]
     const V_MIN = 0.6, V_MAX = 60.0; // 体積スライダーの範囲 [L]。V_MIN は液体の体積 0.8 L より小さく、液体を圧縮できる
     const VT_EXAMPLE_GAS_FRACTION = 0.5; // STEP 3 で沸点ちょうどのときに表示する気体の割合（凝縮途中の一例）
 
@@ -736,7 +746,7 @@
      * T = 360K で Psat = 1.00 (×10^5 Pa)
      */
     function calculateSaturationPressure(T) {
-      const p = Math.exp(5.0 * (1.0 - 360.0 / T));
+      const p = Math.exp(PSAT_B * (1.0 - PSAT_T_REF / T));
       return Math.max(0.01, p);
     }
 
@@ -744,9 +754,9 @@
      * 飽和蒸気圧 Psat から対応する沸点/凝縮温度 Tsat を逆算
      */
     function calculateSaturationTemperature(P) {
-      const val = 1.0 - Math.log(P) / 5.0;
+      const val = 1.0 - Math.log(P) / PSAT_B;
       if (val <= 0) return 600;
-      return 360.0 / val;
+      return PSAT_T_REF / val;
     }
 
     // --- 2. アプリケーション状態管理 ---
@@ -894,7 +904,7 @@
       
       const minPistonY = 25;
       const maxPistonY = containerBottom - 18;
-      const liquidCols = Math.floor(containerWidth / 14);
+      const liquidCols = Math.floor(containerWidth / LIQUID_CELL_PX);
 
       // 液体の層の高さ: 実際の液体の体積は小さい（最大 0.8 L）ので、体積どおりに描くと粒子が収まらない。
       // 粒子を並べるのに必要な最小の厚さだけを確保する（液体のみを圧縮すると行の間隔を詰める）
@@ -906,7 +916,7 @@
 
       // ピストンの位置: 液体の層の上に、気体の体積に比例した高さの気相をのせる
       const vGas = Math.max(0, appState.V - appState.nLiquid * V_LIQUID_MOLAR);
-      const gasSpace = (appState.phase === 'liquid') ? 0 : 18 + (vGas / (V_MAX - V_MIN)) * (maxPistonY - minPistonY);
+      const gasSpace = (appState.phase === 'liquid') ? 0 : GAS_SPACE_MIN_PX + (vGas / (V_MAX - V_MIN)) * (maxPistonY - minPistonY);
       const pistonY = Math.max(minPistonY, containerBottom - liquidHeight - gasSpace);
 
       // 気相領域
@@ -960,8 +970,8 @@
       const frameScale = dt * 60;
 
       // 温度による気体分子運動速度: 分子の平均の速さは √T に比例する
-      const tempNorm = appState.T / 360.0;
-      const speedScale = Math.sqrt(tempNorm) * 1.6;
+      const tempNorm = appState.T / PSAT_T_REF;
+      const speedScale = Math.sqrt(tempNorm) * GAS_SPEED_AT_REF;
 
       for (let i = 0; i < TOTAL_PARTICLES; i++) {
         const p = appState.particles[i];
@@ -1025,7 +1035,7 @@
 
       // 液面（気液界面）での局所的な蒸発・凝縮アニメーション
       if (appState.phase === 'equilibrium' || (appState.nLiquid > 0 && appState.nGas > 0)) {
-        const spawnChance = 1 - Math.pow(1 - 0.22, frameScale); // 1フレーム(1/60秒)あたり 22%
+        const spawnChance = 1 - Math.pow(1 - EVENT_RATE, frameScale);
         if (Math.random() < spawnChance) {
           appState.evapEvents.push({
             x: containerLeft + 15 + Math.random() * (containerWidth - 30),
@@ -1050,7 +1060,7 @@
         for (let i = appState.evapEvents.length - 1; i >= 0; i--) {
           const ev = appState.evapEvents[i];
           ev.y += ev.vy * frameScale;
-          ev.life -= 0.045 * frameScale;
+          ev.life -= EVENT_FADE * frameScale;
           if (ev.life <= 0 || (liquidSurfaceY - ev.y) > ev.maxDist) {
             appState.evapEvents.splice(i, 1);
             continue;
@@ -1073,7 +1083,7 @@
         for (let i = appState.condEvents.length - 1; i >= 0; i--) {
           const cv = appState.condEvents[i];
           cv.y += cv.vy * frameScale;
-          cv.life -= 0.045 * frameScale;
+          cv.life -= EVENT_FADE * frameScale;
           if (cv.life <= 0 || cv.y >= liquidSurfaceY + 2) {
             appState.condEvents.splice(i, 1);
             continue;
@@ -1490,7 +1500,7 @@
         badge.textContent = '状態：気体のみ';
       } else if (appState.phase === 'equilibrium') {
         badge.classList.add('phase-eq');
-        badge.textContent = (appState.nLiquid >= N_TOTAL * 0.9) ? '状態：気液平衡（ほとんど液体）' : '状態：気液平衡';
+        badge.textContent = (appState.nLiquid >= N_TOTAL * NEARLY_LIQUID_FRACTION) ? '状態：気液平衡（ほとんど液体）' : '状態：気液平衡';
       } else {
         badge.classList.add('phase-liquid');
         badge.textContent = '状態：液体のみ';
