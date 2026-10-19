@@ -705,6 +705,7 @@
     const N_TOTAL = 1.0;     // 物質量 1.0 mol
     const TOTAL_PARTICLES = 60; // 視覚化用総分子数
     const V_LIQUID_MOLAR = 0.8; // 液体1molあたりの体積 [L]
+    const VT_EXAMPLE_GAS_FRACTION = 0.5; // STEP 3 で沸点ちょうどのときに表示する気体の割合（凝縮途中の一例）
 
     /**
      * 仮想物質の飽和蒸気圧モデル Psat(T) [×10^5 Pa]
@@ -763,34 +764,30 @@
         appState.T = appState.pv_fixed_T;
       } else if (mode === 3) {
         // STEP 3: V-T (P, n 一定)
+        // 純物質は圧力一定なら沸点 Tsat の1点で凝縮する（Tsat より高温: 気体のみ、低温: 液体のみ）
         const targetP = appState.vt_fixed_P;
         const Tsat = calculateSaturationTemperature(targetP);
-        
-        if (appState.T >= Tsat) {
+        const vLiq = V_LIQUID_MOLAR * N_TOTAL;
+        appState.P = targetP;
+
+        if (Math.abs(appState.T - Tsat) < 0.5) {
+          // 沸点: 熱を奪うと温度一定のまま凝縮が進む。ここでは途中の一例として半分が液体の状態を表す
+          appState.phase = 'equilibrium';
+          appState.nGas = N_TOTAL * VT_EXAMPLE_GAS_FRACTION;
+          appState.nLiquid = N_TOTAL - appState.nGas;
+          appState.V = (appState.nGas * R_CONST * Tsat) / targetP + appState.nLiquid * V_LIQUID_MOLAR;
+        } else if (appState.T > Tsat) {
           // 気体領域: V = nRT / P
-          appState.V = (N_TOTAL * R_CONST * appState.T) / targetP;
-          appState.P = targetP;
           appState.phase = 'gas';
           appState.nGas = N_TOTAL;
           appState.nLiquid = 0;
+          appState.V = (N_TOTAL * R_CONST * appState.T) / targetP;
         } else {
-          // 液体領域
-          const transition = Math.max(0, Math.min(1, (Tsat - appState.T) / 10.0));
-          const vGasAtSat = (N_TOTAL * R_CONST * Tsat) / targetP;
-          const vLiq = V_LIQUID_MOLAR * N_TOTAL;
-          
-          appState.V = vGasAtSat * (1 - transition) + vLiq * transition;
-          appState.P = targetP;
-          
-          if (transition < 0.9) {
-            appState.phase = 'equilibrium';
-            appState.nLiquid = N_TOTAL * transition;
-            appState.nGas = N_TOTAL - appState.nLiquid;
-          } else {
-            appState.phase = 'liquid';
-            appState.nLiquid = N_TOTAL;
-            appState.nGas = 0;
-          }
+          // 液体領域: P > Psat(T) なので気体は存在できない。液体の体積はほぼ一定
+          appState.phase = 'liquid';
+          appState.nGas = 0;
+          appState.nLiquid = N_TOTAL;
+          appState.V = vLiq;
         }
         appState.Psat = calculateSaturationPressure(appState.T);
         updateParticleCounts();
@@ -1517,7 +1514,8 @@
       },
       3: {
         gas: '【V-T: 高温側・気体領域】一定圧力のもとで温度Tを上げると、気体分子が勢いよくピストンを押し広げ、体積Vは直線的に増加します（シャルルの法則: V ∝ T）。',
-        other: '【V-T: 低温側・液体領域】凝縮温度（沸点）を下回ると、気体分子が一気に凝縮して体積が劇的に収縮します。液体になった後は、温度を下げても体積はほとんど変化しません（V ≈ Vliq で一定、0にはなりません）。'
+        equilibrium: '【V-T: 沸点（気液平衡）】圧力一定のもとでは、凝縮は沸点（360 K）の1点で起こります。熱を奪っていくと、温度は沸点のまま凝縮が進み、体積は気体の体積から液体の体積まで一気に減ります（ここでは途中の一例として、半分が液体になった状態を表示しています）。',
+        liquid: '【V-T: 低温側・液体領域】沸点より低い温度では、すべての分子が液体になっています。外から加わる圧力が飽和蒸気圧より大きいので、気体は存在できません。液体になった後は、温度を下げても体積はほとんど変化しません（V ≈ Vliq で一定、0にはなりません）。'
       }
     };
 
