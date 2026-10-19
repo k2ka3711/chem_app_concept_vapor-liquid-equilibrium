@@ -627,7 +627,7 @@
         <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-top: 4px; flex-wrap: wrap; gap: 4px;">
           <span><strong style="color: #2563eb;">━━</strong> 実際の変化</span>
           <span><strong style="color: #64748b;">┈┈</strong> 理想気体なら（灰色破線）</span>
-          <span><strong style="color: #0d9488;">╍╍</strong> 飽和蒸気圧曲線（緑の点線）</span>
+          <span><strong style="color: #0d9488;">╍╍</strong> 蒸気圧曲線（緑の点線）</span>
         </div>
       </section>
 
@@ -758,8 +758,8 @@
       liquidParticleCount: 0,
       
       // 各モードの固定値設定
-      pt_fixed_V: 20.0, // STEP 1での固定体積 (液化開始点 T=401K)
-      pv_fixed_T: 360.0,// STEP 2での固定温度 (Psat=1.00, 液化開始点 V=30.0L)
+      pt_fixed_V: 20.0, // STEP 1での固定体積 (凝縮開始点 T=401K)
+      pv_fixed_T: 360.0,// STEP 2での固定温度 (Psat=1.00, 凝縮開始点 V=30.0L)
       vt_fixed_P: 1.00, // STEP 3での固定圧力 (沸点 Tsat=360K)
 
       // アニメーション用
@@ -1172,7 +1172,7 @@
           yTicks: range(1.0, 3.0, 1.0), yTickDx: -26, yTickFmt: v => v.toFixed(1)
         }, v => toCanvasX(v, minT, maxT), v => toCanvasY(v, minP, maxP), padLeft, padTop, plotW, plotH);
 
-        // 1. 飽和蒸気圧曲線 Psat(T)（緑の点線）
+        // 1. 蒸気圧曲線 Psat(T)（緑の点線）
         ctx.strokeStyle = '#0d9488';
         ctx.lineWidth = 2;
         ctx.setLineDash([4, 4]);
@@ -1241,7 +1241,7 @@
         }
         ctx.stroke();
 
-        // 液化開始点マーカー（液体のみのときなど、凝縮の始まる点がなければ描かない）
+        // 凝縮開始点マーカー（液体のみのときなど、凝縮の始まる点がなければ描かない）
         if (tCond !== null) {
           const condX = toCanvasX(tCond, minT, maxT);
           const condY = toCanvasY((N_TOTAL * R_CONST * tCond) / fixedV, minP, maxP);
@@ -1251,7 +1251,7 @@
           ctx.fill();
           ctx.fillStyle = '#b45309';
           ctx.font = '10px sans-serif';
-          ctx.fillText(`液化開始点 (${Math.round(tCond)}K)`, condX - 25, condY - 8);
+          ctx.fillText(`凝縮開始点 (${Math.round(tCond)}K)`, condX - 25, condY - 8);
         }
 
         // 領域ラベル
@@ -1331,12 +1331,12 @@
         }
         ctx.stroke();
 
-        // 液化開始点
+        // 凝縮開始点
         ctx.fillStyle = '#d97706';
         ctx.beginPath();
         ctx.arc(cxCond, cyLiq, 4, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillText(`液化開始 (${Vcond.toFixed(0)}L)`, cxCond - 15, cyLiq - 8);
+        ctx.fillText(`凝縮開始点 (${Vcond.toFixed(0)}L)`, cxCond - 15, cyLiq - 8);
 
         // 領域ラベル
         ctx.fillStyle = 'rgba(2, 132, 199, 0.9)';
@@ -1406,12 +1406,12 @@
         }
         ctx.stroke();
 
-        // 凝縮温度マーカー
+        // 沸点マーカー
         ctx.fillStyle = '#d97706';
         ctx.beginPath();
         ctx.arc(cxTsat, cyGasSat, 4, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillText(`凝縮点 (${Tsat.toFixed(0)} K)`, cxTsat - 30, cyGasSat - 8);
+        ctx.fillText(`沸点 (${Tsat.toFixed(0)} K)`, cxTsat - 30, cyGasSat - 8);
 
         // 領域ラベル
         ctx.fillStyle = 'rgba(2, 132, 199, 0.9)';
@@ -1527,11 +1527,11 @@
       },
       1: {
         gas: '【P-T: 高温側・気体領域】温度Tの上昇とともに分子の衝突速度が増し、圧力Pは直線的に上昇します（P ∝ T）。理想気体の破線と一致しています。',
-        other: '【P-T: 低温側・気液平衡】温度を下げて液化開始点を下回ると、気体分子の一部が液体へと凝縮します。気体分子数が減るため、圧力は理想気体の直線から下方に大きく外れ、温度ごとの「飽和蒸気圧曲線 Psat(T)」に沿って低下します。'
+        other: '【P-T: 低温側・気液平衡】温度を下げて凝縮開始点を下回ると、気体分子の一部が液体へと凝縮します。気体分子数が減るため、圧力は理想気体の直線から下方に大きく外れ、温度ごとの「蒸気圧曲線 Psat(T)」に沿って低下します。'
       },
       2: {
         gas: '【P-V: 低圧側・気体領域】体積Vを小さくする（圧縮する）と、分子の衝突頻度が増えて圧力Pが双曲線を描いて上昇します（ボイルの法則: P ∝ 1/V）。',
-        equilibrium: '【P-V: 気液平衡（平坦領域）】液化開始点を超えてさらに圧縮しても、圧力は上昇せず飽和蒸気圧 Psat でほぼ一定を保ちます！圧縮された分の気体分子が次々と液体へと姿を変えるため、気相の圧力が保たれるからです。',
+        equilibrium: '【P-V: 気液平衡（平坦領域）】凝縮開始点を超えてさらに圧縮しても、圧力は上昇せず飽和蒸気圧 Psat でほぼ一定を保ちます！圧縮された分の気体分子が次々と液体へと姿を変えるため、気相の圧力が保たれるからです。',
         liquid: '【P-V: 高圧側・液体領域】気体がすべて液体になりました。液体は分子同士が隙間なく詰まっているため圧縮されにくく、体積をわずかに縮めようとするだけで圧力が急激に跳ね上がります。'
       },
       3: {
@@ -1571,7 +1571,7 @@
         init: () => { appState.T = 480; appState.V = appState.pt_fixed_V; },
         presets: [
           { label: '高温側（気体領域 550K）', action: () => { appState.T = 550; } },
-          { label: '液化開始点 (401K)', action: () => { appState.T = 401; } },
+          { label: '凝縮開始点 (401K)', action: () => { appState.T = 401; } },
           { label: '低温側（気液平衡 300K）', action: () => { appState.T = 300; } }
         ]
       },
@@ -1583,7 +1583,7 @@
         init: () => { appState.T = appState.pv_fixed_T; appState.V = 50.0; },
         presets: [
           { label: '低圧側（気体領域 50.0L）', action: () => { appState.V = 50.0; } },
-          { label: '液化開始点 (30.0L)', action: () => { appState.V = 30.0; } },
+          { label: '凝縮開始点 (30.0L)', action: () => { appState.V = 30.0; } },
           { label: '気液平衡（P一定 15.0L）', action: () => { appState.V = 15.0; } },
           { label: 'ほとんど液体（まだ気液平衡 1.0L）', action: () => { appState.V = 1.0; } },
           { label: '高圧側（液体のみを圧縮 0.6L）', action: () => { appState.V = 0.6; } }
@@ -1597,7 +1597,7 @@
         init: () => { appState.T = 500; appState.P = appState.vt_fixed_P; },
         presets: [
           { label: '高温膨張（気体 520K）', action: () => { appState.T = 520; } },
-          { label: '凝縮点・沸点 (360K)', action: () => { appState.T = 360; } },
+          { label: '沸点 (360K)', action: () => { appState.T = 360; } },
           { label: '低温側（液体 250K）', action: () => { appState.T = 250; } }
         ]
       }
