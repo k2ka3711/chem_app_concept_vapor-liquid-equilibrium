@@ -1676,7 +1676,8 @@
       const height = mCanvas.parentElement.clientHeight;
 
       updateAndDrawMolecules(mCtx, width, height, dt);
-      drawGraph(gCtx, width, height);
+      // グラフはグラフ自身の枠の大きさで描く（分子の canvas と幅が違う場合がある）
+      drawGraph(gCtx, gCanvas.parentElement.clientWidth, gCanvas.parentElement.clientHeight);
 
       requestAnimationFrame(animationLoop);
     }
