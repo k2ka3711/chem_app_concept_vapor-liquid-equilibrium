@@ -610,7 +610,7 @@
           <span style="font-size: 0.7rem; color: var(--text-light);" id="molecule-speed-label">分子運動: 活発</span>
         </div>
         <div class="canvas-wrapper" style="height: 240px;">
-          <canvas id="moleculeCanvas" width="400" height="240"></canvas>
+          <canvas id="moleculeCanvas" width="400" height="240" role="img" aria-label="容器内の分子の模式図"></canvas>
         </div>
         
         <!-- 凡例は常時表示 -->
@@ -629,7 +629,7 @@
           <span style="font-size: 0.7rem; color: var(--text-light);">現在位置 ●</span>
         </div>
         <div class="canvas-wrapper" style="height: 240px;">
-          <canvas id="graphCanvas" width="400" height="240"></canvas>
+          <canvas id="graphCanvas" width="400" height="240" role="img" aria-label="状態変化グラフ"></canvas>
         </div>
         <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-top: 4px; flex-wrap: wrap; gap: 4px;">
           <span><strong style="color: #2563eb;">━━</strong> 実際の変化</span>
@@ -1517,6 +1517,12 @@
       document.getElementById('formula-liquid').classList.toggle('active', appState.phase === 'liquid');
 
       document.getElementById('formula-note').textContent = FORMULA_NOTES[appState.phase];
+
+      // canvas の内容を読み上げ用の文章でも伝える
+      document.getElementById('moleculeCanvas').setAttribute('aria-label',
+        `容器内の分子の模式図。${badge.textContent}。気体の分子 ${appState.gasParticleCount} 個、液体の分子 ${appState.liquidParticleCount} 個。`);
+      document.getElementById('graphCanvas').setAttribute('aria-label',
+        `${document.getElementById('graph-title').textContent}。現在の点: 温度 ${Math.round(appState.T)} K、圧力 ${appState.P.toFixed(2)}×10⁵ Pa、体積 ${appState.V.toFixed(1)} L。`);
 
       updateExplanation();
     }
