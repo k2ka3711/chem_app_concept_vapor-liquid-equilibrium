@@ -489,6 +489,72 @@
       background: #b45309;
     }
 
+    /* 予想 → 観察 → 説明（STEP 1〜3） */
+    .predict-box {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+
+    .predict-title {
+      display: block;
+      color: #b45309;
+      font-size: 0.85rem;
+      margin-bottom: 2px;
+    }
+
+    .predict-q {
+      font-size: 0.85rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
+
+    .predict-options {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .predict-btn {
+      text-align: left;
+      padding: 8px 12px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      background: white;
+      border: 1.5px solid var(--border-color);
+      border-radius: 6px;
+      color: var(--text-main);
+      cursor: pointer;
+    }
+
+    .predict-btn.selected { border-color: #f59e0b; background: #fef3c7; }
+    .predict-btn.correct { border-color: #10b981; background: #ecfdf5; color: #065f46; }
+    .predict-btn.wrong { border-color: #ef4444; background: #fef2f2; color: #991b1b; }
+    .predict-btn.correct::after { content: " ✓ 正解"; font-weight: 800; }
+    .predict-btn.wrong::after { content: " ✗ あなたの予想"; font-weight: 800; }
+
+    .predict-check {
+      margin-top: 8px;
+      padding: 8px 14px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      background: white;
+      border: 1.5px solid #f59e0b;
+      border-radius: 999px;
+      color: #b45309;
+      cursor: pointer;
+    }
+
+    .predict-result {
+      font-size: 0.85rem;
+      margin-top: 8px;
+      line-height: 1.6;
+    }
+
+    .predict-result:empty { display: none; }
+
     /* STEP 1〜3 の前後移動 */
     .step-pager {
       display: flex;
@@ -704,6 +770,15 @@
           <!-- JSで動的生成 -->
         </div>
       </div>
+    </section>
+
+    <!-- STEP 1〜3：操作の前に予想する -->
+    <section class="predict-box hidden" id="predict-box" aria-label="予想しよう">
+      <strong class="predict-title">🤔 まず予想しよう</strong>
+      <div class="predict-q" id="predict-q"></div>
+      <div class="predict-options" id="predict-options"></div>
+      <button class="predict-check hidden" id="predict-check"></button>
+      <div class="predict-result" id="predict-result"></div>
     </section>
 
     <!-- 【修正3】数式と状態対応（縦3行レイアウト） -->
@@ -1669,6 +1744,7 @@
 
       document.getElementById('step0-next-prompt').classList.toggle('hidden', newStep !== 0);
       updateStepPager(newStep);
+      renderPrediction(newStep);
       document.getElementById('condition-title').textContent = cfg.title;
       document.getElementById('condition-tag').textContent = cfg.tag;
       document.getElementById('graph-title').textContent = cfg.graphTitle;
@@ -1680,6 +1756,111 @@
 
       calculateState();
       updateUI();
+    }
+
+    /* 予想 → 観察 → 説明: STEP 1〜3 で操作の前に予想を選び、「確かめる」で状態を変えて答え合わせする。
+       apply: 確かめるときに設定する状態, explanation: 答え合わせの解説（モデルの計算値から作る） */
+    const PREDICTIONS = {
+      1: {
+        question: () => '体積 20.0 L のまま 480 K から冷やしていきます。凝縮開始点（401 K）より低い 300 K では、圧力はどうなるでしょうか？',
+        options: ['理想気体の直線どおりに下がる（P ∝ T）', '理想気体の直線より大きく下がる', '凝縮開始点の圧力のまま一定になる'],
+        answer: 1,
+        feedback: [
+          '残念！凝縮が始まると気体の物質量が減るので、物質量一定のときの直線（P ∝ T）には従いません。',
+          '🎉 予想どおり！',
+          '残念！温度を下げると飽和蒸気圧も下がるので、圧力は一定にはなりません。'
+        ],
+        checkLabel: '▶ 300 K にして確かめる',
+        apply: () => { appState.T = 300; },
+        explanation: () => {
+          const ideal = (N_TOTAL * R_CONST * 300) / appState.pt_fixed_V;
+          return `凝縮が始まると、圧力は蒸気圧曲線 P = Psat(T) に沿って下がります。300 K では、理想気体なら ${ideal.toFixed(2)}×10⁵ Pa ですが、実際は ${calculateSaturationPressure(300).toFixed(2)}×10⁵ Pa です。`;
+        }
+      },
+      2: {
+        question: () => '360 K で 50 L から圧縮していくと、30 L で凝縮が始まりました。さらに 15 L まで圧縮すると、圧力はどうなるでしょうか？',
+        options: ['ボイルの法則どおり約2倍になる', '1.00×10⁵ Pa のまま変わらない', '下がる'],
+        answer: 1,
+        feedback: [
+          '残念！ボイルの法則は気体の物質量が一定のときの法則です。気液平衡では、圧縮した分の気体が凝縮して液体になるので、圧力は上がりません。',
+          '🎉 予想どおり！',
+          '残念！気体が残っている間、圧力は飽和蒸気圧に保たれるので、下がることはありません。'
+        ],
+        checkLabel: '▶ 15 L にして確かめる',
+        apply: () => { appState.V = 15.0; },
+        explanation: () => {
+          const T = appState.pv_fixed_T;
+          const ideal = (N_TOTAL * R_CONST * T) / 15.0;
+          return `気液平衡では、気体の圧力は温度で決まる飽和蒸気圧（360 K で ${calculateSaturationPressure(T).toFixed(2)}×10⁵ Pa）に保たれます。理想気体なら 15 L で ${ideal.toFixed(2)}×10⁵ Pa になるはずですが、実際は ${calculateSaturationPressure(T).toFixed(2)}×10⁵ Pa のままです。`;
+        }
+      },
+      3: {
+        question: () => '圧力 1.00×10⁵ Pa のまま 500 K から冷やしていきます。沸点（360 K）より低い 300 K では、体積はどうなるでしょうか？',
+        options: ['V ∝ T の直線どおりに小さくなる', '沸点で一気に小さくなり、液体の体積（約 0.8 L）になる', '0 L になる'],
+        answer: 1,
+        feedback: [
+          '残念！沸点より低い温度では、外から加わる圧力が飽和蒸気圧より大きいので気体は存在できず、すべて液体になります。',
+          '🎉 予想どおり！',
+          '残念！液体にも体積があるので、0 L にはなりません。'
+        ],
+        checkLabel: '▶ 300 K にして確かめる',
+        apply: () => { appState.T = 300; },
+        explanation: () => {
+          const ideal = (N_TOTAL * R_CONST * 300) / appState.vt_fixed_P;
+          return `沸点 360 K で凝縮が起こり、それより低い温度ではすべて液体です。理想気体なら 300 K で ${ideal.toFixed(1)} L ですが、実際は液体の体積 ${(V_LIQUID_MOLAR * N_TOTAL).toFixed(1)} L です。`;
+        }
+      }
+    };
+
+    function renderPrediction(step) {
+      const box = document.getElementById('predict-box');
+      const data = PREDICTIONS[step];
+      box.classList.toggle('hidden', !data);
+      if (!data) return;
+
+      const opts = document.getElementById('predict-options');
+      const check = document.getElementById('predict-check');
+      const result = document.getElementById('predict-result');
+      document.getElementById('predict-q').textContent = data.question();
+      opts.innerHTML = '';
+      result.textContent = '';
+      check.classList.add('hidden');
+      check.textContent = data.checkLabel;
+      let choice = null;
+
+      const btns = data.options.map((label, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'predict-btn';
+        btn.textContent = label;
+        btn.addEventListener('click', () => {
+          choice = idx;
+          btns.forEach((b, i) => b.classList.toggle('selected', i === idx));
+          result.textContent = '予想を決めたら、下のボタンで確かめよう！';
+          check.classList.remove('hidden');
+        });
+        opts.appendChild(btn);
+        return btn;
+      });
+
+      check.onclick = () => {
+        if (choice === null) return;
+        data.apply();
+        calculateState();
+        updateUI();
+        btns.forEach((b, i) => {
+          b.disabled = true;
+          b.classList.remove('selected');
+          if (i === choice && i !== data.answer) b.classList.add('wrong');
+          if (i === data.answer) b.classList.add('correct');
+        });
+        check.classList.add('hidden');
+        result.innerHTML = '';
+        const reason = document.createElement('div');
+        reason.textContent = data.feedback[choice];
+        const expl = document.createElement('div');
+        expl.textContent = `解説：${data.explanation()}`;
+        result.append(reason, expl);
+      };
     }
 
     // STEP 1〜3 で「前の STEP」「次の STEP」ボタンを表示する（最後の STEP では最初に戻る）
