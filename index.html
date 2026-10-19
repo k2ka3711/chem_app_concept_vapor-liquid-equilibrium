@@ -1073,6 +1073,21 @@
     }
 
     // --- 5. グラフ描画エンジン (Canvas) ---
+    /**
+     * 軸の名前と目盛りの数値を描く（3種類のグラフで共通）
+     * axis: { yName, xName, xNameDx, xTicks, xTickDx, yTicks, yTickDx, yTickFmt }
+     */
+    function drawAxisLabels(ctx, axis, toX, toY, padLeft, padTop, plotW, plotH) {
+      ctx.fillText(axis.yName, padLeft - 5, padTop - 6);
+      ctx.fillText(axis.xName, padLeft + plotW + axis.xNameDx, padTop + plotH + 30);
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = '10px sans-serif';
+      axis.xTicks.forEach(v => ctx.fillText(`${v}`, toX(v) + axis.xTickDx, padTop + plotH + 15));
+      axis.yTicks.forEach(v => ctx.fillText(axis.yTickFmt(v), padLeft + axis.yTickDx, toY(v) + 4));
+    }
+
+    const range = (from, to, step) => { const a = []; for (let v = from; v <= to; v += step) a.push(v); return a; };
     function drawGraph(ctx, width, height) {
       ctx.save();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1126,19 +1141,11 @@
         const minP = 0.0, maxP = 4.0;
         const fixedV = appState.step === 0 ? appState.V : appState.pt_fixed_V;
 
-        ctx.fillText('P [×10⁵ Pa]', padLeft - 5, padTop - 6);
-        ctx.fillText('温度 T [K]', padLeft + plotW - 45, padTop + plotH + 30);
-
-        ctx.fillStyle = '#64748b';
-        ctx.font = '10px sans-serif';
-        for (let t = 200; t <= 600; t += 100) {
-          const cx = toCanvasX(t, minT, maxT);
-          ctx.fillText(`${t}`, cx - 8, padTop + plotH + 15);
-        }
-        for (let p = 1.0; p <= 3.0; p += 1.0) {
-          const cy = toCanvasY(p, minP, maxP);
-          ctx.fillText(p.toFixed(1), padLeft - 26, cy + 4);
-        }
+        drawAxisLabels(ctx, {
+          yName: 'P [×10⁵ Pa]', xName: '温度 T [K]', xNameDx: -45,
+          xTicks: range(200, 600, 100), xTickDx: -8,
+          yTicks: range(1.0, 3.0, 1.0), yTickDx: -26, yTickFmt: v => v.toFixed(1)
+        }, v => toCanvasX(v, minT, maxT), v => toCanvasY(v, minP, maxP), padLeft, padTop, plotW, plotH);
 
         // 1. 飽和蒸気圧曲線 Psat(T)（緑の点線）
         ctx.strokeStyle = '#0d9488';
@@ -1246,19 +1253,11 @@
         const Vcond = (N_TOTAL * R_CONST * fixedT) / Psat; // 30.0L
         const Vliq = V_LIQUID_MOLAR * N_TOTAL;
 
-        ctx.fillText('P [×10⁵ Pa]', padLeft - 5, padTop - 6);
-        ctx.fillText('体積 V [L]', padLeft + plotW - 40, padTop + plotH + 30);
-
-        ctx.fillStyle = '#64748b';
-        ctx.font = '10px sans-serif';
-        for (let v = 10; v <= 60; v += 10) {
-          const cx = toCanvasX(v, minV, maxV);
-          ctx.fillText(`${v}`, cx - 6, padTop + plotH + 15);
-        }
-        for (let p = 1.0; p <= 3.0; p += 1.0) {
-          const cy = toCanvasY(p, minP, maxP);
-          ctx.fillText(p.toFixed(1), padLeft - 24, cy + 4);
-        }
+        drawAxisLabels(ctx, {
+          yName: 'P [×10⁵ Pa]', xName: '体積 V [L]', xNameDx: -40,
+          xTicks: range(10, 60, 10), xTickDx: -6,
+          yTicks: range(1.0, 3.0, 1.0), yTickDx: -24, yTickFmt: v => v.toFixed(1)
+        }, v => toCanvasX(v, minV, maxV), v => toCanvasY(v, minP, maxP), padLeft, padTop, plotW, plotH);
 
         // 1. 【修正1】理想気体双曲線 P = nRT/V (灰色破線・上端突き抜けで水平化を完全排除)
         ctx.strokeStyle = '#94a3b8';
@@ -1336,19 +1335,11 @@
         const Tsat = calculateSaturationTemperature(fixedP); // 360K
         const Vliq = V_LIQUID_MOLAR * N_TOTAL;
 
-        ctx.fillText('体積 V [L]', padLeft - 5, padTop - 6);
-        ctx.fillText('温度 T [K]', padLeft + plotW - 45, padTop + plotH + 30);
-
-        ctx.fillStyle = '#64748b';
-        ctx.font = '10px sans-serif';
-        for (let t = 200; t <= 600; t += 100) {
-          const cx = toCanvasX(t, minT, maxT);
-          ctx.fillText(`${t}`, cx - 8, padTop + plotH + 15);
-        }
-        for (let v = 10; v <= 50; v += 10) {
-          const cy = toCanvasY(v, minV, maxV);
-          ctx.fillText(`${v}`, padLeft - 22, cy + 4);
-        }
+        drawAxisLabels(ctx, {
+          yName: '体積 V [L]', xName: '温度 T [K]', xNameDx: -45,
+          xTicks: range(200, 600, 100), xTickDx: -8,
+          yTicks: range(10, 50, 10), yTickDx: -22, yTickFmt: v => `${v}`
+        }, v => toCanvasX(v, minT, maxT), v => toCanvasY(v, minV, maxV), padLeft, padTop, plotW, plotH);
 
         // 1. 理想気体直線 V = nRT/P (灰色破線)
         ctx.strokeStyle = '#94a3b8';
@@ -1490,133 +1481,118 @@
       document.getElementById('formula-sat').classList.toggle('active', appState.phase === 'equilibrium');
       document.getElementById('formula-liquid').classList.toggle('active', appState.phase === 'liquid');
 
-      const formulaNote = document.getElementById('formula-note');
-      if (appState.phase === 'gas') {
-        formulaNote.textContent = '【気体領域】すべての分子が気体として振る舞い、状態方程式 PV = nRT が完全に成立します。';
-      } else if (appState.phase === 'equilibrium') {
-        formulaNote.textContent = '【気液平衡】系全体に単純に PV=nRT を適用することはできません。圧力は温度で決まる「飽和蒸気圧 Psat(T)」に保たれます（気相部分のみ PVgas = ngas RT が成立）。';
-      } else {
-        formulaNote.textContent = '【液体領域】液体は気体に比べて非常に圧縮されにくいため、わずかな体積減少で圧力が急上昇します。';
-      }
+      document.getElementById('formula-note').textContent = FORMULA_NOTES[appState.phase];
 
       updateExplanation();
     }
 
     function updateExplanation() {
-      const expEl = document.getElementById('explanation-text');
-      const mode = appState.step;
-
-      if (mode === 0) {
-        if (appState.phase === 'gas') {
-          expEl.textContent = '【気体のみ】温度が高く、体積も十分にあるため、すべての分子が活発に熱運動して容器全体を飛び回っています。分子同士の引力に打ち勝ち、液体は生じません。';
-        } else if (appState.phase === 'equilibrium') {
-          expEl.textContent = '【気液平衡】一部の分子が凝縮して液体になりました。液面では「脱出する蒸発分子」と「捕獲される凝縮分子」の数が釣り合っており、マクロには変化がないように見えますが、ミクロでは常に動的な交換が起こっています。圧力は飽和蒸気圧に対応します。';
-        } else {
-          expEl.textContent = '【液体主体】ほとんどの分子が凝縮して液体になりました。液体分子同士は密着しているため、これ以上体積を縮めるには非常に大きな圧力が必要です。';
-        }
-      } else if (mode === 1) {
-        if (appState.phase === 'gas') {
-          expEl.textContent = '【P-T: 高温側・気体領域】温度Tの上昇とともに分子の衝突速度が増し、圧力Pは直線的に上昇します（P ∝ T）。理想気体の破線と一致しています。';
-        } else {
-          expEl.textContent = '【P-T: 低温側・気液平衡】温度を下げて液化開始点を下回ると、気体分子の一部が液体へと凝縮します。気体分子数が減るため、圧力は理想気体の直線から下方に大きく外れ、温度ごとの「飽和蒸気圧曲線 Psat(T)」に沿って低下します。';
-        }
-      } else if (mode === 2) {
-        if (appState.phase === 'gas') {
-          expEl.textContent = '【P-V: 低圧側・気体領域】体積Vを小さくする（圧縮する）と、分子の衝突頻度が増えて圧力Pが双曲線を描いて上昇します（ボイルの法則: P ∝ 1/V）。';
-        } else if (appState.phase === 'equilibrium') {
-          expEl.textContent = '【P-V: 気液平衡（平坦領域）】液化開始点を超えてさらに圧縮しても、圧力は上昇せず飽和蒸気圧 Psat でほぼ一定を保ちます！圧縮された分の気体分子が次々と液体へと姿を変えるため、気相の圧力が保たれるからです。';
-        } else {
-          expEl.textContent = '【P-V: 高圧側・液体領域】気体がすべて液体になりました。液体は分子同士が隙間なく詰まっているため圧縮されにくく、体積をわずかに縮めようとするだけで圧力が急激に跳ね上がります。';
-        }
-      } else if (mode === 3) {
-        if (appState.phase === 'gas') {
-          expEl.textContent = '【V-T: 高温側・気体領域】一定圧力のもとで温度Tを上げると、気体分子が勢いよくピストンを押し広げ、体積Vは直線的に増加します（シャルルの法則: V ∝ T）。';
-        } else {
-          expEl.textContent = '【V-T: 低温側・液体領域】凝縮温度（沸点）を下回ると、気体分子が一気に凝縮して体積が劇的に収縮します。液体になった後は、温度を下げても体積はほとんど変化しません（V ≈ Vliq で一定、0にはなりません）。';
-        }
-      }
+      const texts = EXPLANATIONS[appState.step];
+      document.getElementById('explanation-text').textContent = texts[appState.phase] || texts.other;
     }
+
+    // --- 6b. 表示文のデータ（文言の修正はここだけを編集する） ---
+    // 解説: EXPLANATIONS[STEP][相]。相の文がないときは other を使う
+    const EXPLANATIONS = {
+      0: {
+        gas: '【気体のみ】温度が高く、体積も十分にあるため、すべての分子が活発に熱運動して容器全体を飛び回っています。分子同士の引力に打ち勝ち、液体は生じません。',
+        equilibrium: '【気液平衡】一部の分子が凝縮して液体になりました。液面では「脱出する蒸発分子」と「捕獲される凝縮分子」の数が釣り合っており、マクロには変化がないように見えますが、ミクロでは常に動的な交換が起こっています。圧力は飽和蒸気圧に対応します。',
+        liquid: '【液体主体】ほとんどの分子が凝縮して液体になりました。液体分子同士は密着しているため、これ以上体積を縮めるには非常に大きな圧力が必要です。'
+      },
+      1: {
+        gas: '【P-T: 高温側・気体領域】温度Tの上昇とともに分子の衝突速度が増し、圧力Pは直線的に上昇します（P ∝ T）。理想気体の破線と一致しています。',
+        other: '【P-T: 低温側・気液平衡】温度を下げて液化開始点を下回ると、気体分子の一部が液体へと凝縮します。気体分子数が減るため、圧力は理想気体の直線から下方に大きく外れ、温度ごとの「飽和蒸気圧曲線 Psat(T)」に沿って低下します。'
+      },
+      2: {
+        gas: '【P-V: 低圧側・気体領域】体積Vを小さくする（圧縮する）と、分子の衝突頻度が増えて圧力Pが双曲線を描いて上昇します（ボイルの法則: P ∝ 1/V）。',
+        equilibrium: '【P-V: 気液平衡（平坦領域）】液化開始点を超えてさらに圧縮しても、圧力は上昇せず飽和蒸気圧 Psat でほぼ一定を保ちます！圧縮された分の気体分子が次々と液体へと姿を変えるため、気相の圧力が保たれるからです。',
+        liquid: '【P-V: 高圧側・液体領域】気体がすべて液体になりました。液体は分子同士が隙間なく詰まっているため圧縮されにくく、体積をわずかに縮めようとするだけで圧力が急激に跳ね上がります。'
+      },
+      3: {
+        gas: '【V-T: 高温側・気体領域】一定圧力のもとで温度Tを上げると、気体分子が勢いよくピストンを押し広げ、体積Vは直線的に増加します（シャルルの法則: V ∝ T）。',
+        other: '【V-T: 低温側・液体領域】凝縮温度（沸点）を下回ると、気体分子が一気に凝縮して体積が劇的に収縮します。液体になった後は、温度を下げても体積はほとんど変化しません（V ≈ Vliq で一定、0にはなりません）。'
+      }
+    };
+
+    // 「どの数式・法則が成り立っているか？」の注記（相ごと）
+    const FORMULA_NOTES = {
+      gas: '【気体領域】すべての分子が気体として振る舞い、状態方程式 PV = nRT が完全に成立します。',
+      equilibrium: '【気液平衡】系全体に単純に PV=nRT を適用することはできません。圧力は温度で決まる「飽和蒸気圧 Psat(T)」に保たれます（気相部分のみ PVgas = ngas RT が成立）。',
+      liquid: '【液体領域】液体は気体に比べて非常に圧縮されにくいため、わずかな体積減少で圧力が急上昇します。'
+    };
+
+    // STEPごとの条件表示・操作できるスライダー・初期状態・クイック操作
+    const STEP_CONFIG = {
+      0: {
+        title: 'STEP 0: 気液平衡を体験（分子の動きと相変化）',
+        tag: 'T・V操作可能 / n一定',
+        graphTitle: 'P - T 状態変化グラフ（リアルタイム連動）',
+        showT: true, showV: true,
+        init: () => { appState.T = 420; appState.V = 25.0; },
+        presets: [
+          { label: '① 初期状態（気体のみ 420K, 25L）', action: () => { appState.T = 420; appState.V = 25.0; } },
+          { label: '② 温度を下げる（冷却凝縮 280K）', action: () => { appState.T = 280; appState.V = 25.0; } },
+          { label: '③ 体積を縮める（圧縮凝縮 8.0L）', action: () => { appState.T = 420; appState.V = 8.0; } },
+          { label: '④ 高温加熱（再蒸発 550K）', action: () => { appState.T = 550; appState.V = 25.0; } }
+        ]
+      },
+      1: {
+        title: 'STEP 1: P - T グラフの学習',
+        tag: '条件: 体積 V=20.0L・物質量 n=1.0mol 一定',
+        graphTitle: 'P - T グラフ (V=20.0L 一定)',
+        showT: true, showV: false,
+        init: () => { appState.T = 480; appState.V = appState.pt_fixed_V; },
+        presets: [
+          { label: '高温側（気体領域 550K）', action: () => { appState.T = 550; } },
+          { label: '液化開始点 (401K)', action: () => { appState.T = 401; } },
+          { label: '低温側（気液平衡 300K）', action: () => { appState.T = 300; } }
+        ]
+      },
+      2: {
+        title: 'STEP 2: P - V グラフの学習',
+        tag: '条件: 温度 T=360K・物質量 n=1.0mol 一定 (Psat=1.00)',
+        graphTitle: 'P - V グラフ (T=360K 一定)',
+        showT: false, showV: true,
+        init: () => { appState.T = appState.pv_fixed_T; appState.V = 50.0; },
+        presets: [
+          { label: '低圧側（気体領域 50.0L）', action: () => { appState.V = 50.0; } },
+          { label: '液化開始点 (30.0L)', action: () => { appState.V = 30.0; } },
+          { label: '気液平衡（P一定 15.0L）', action: () => { appState.V = 15.0; } },
+          { label: '高圧側（液体主体 1.0L）', action: () => { appState.V = 1.0; } }
+        ]
+      },
+      3: {
+        title: 'STEP 3: V - T グラフの学習',
+        tag: '条件: 圧力 P=1.00×10⁵Pa・物質量 n=1.0mol 一定',
+        graphTitle: 'V - T グラフ (P=1.00×10⁵Pa 一定)',
+        showT: true, showV: false,
+        init: () => { appState.T = 500; appState.P = appState.vt_fixed_P; },
+        presets: [
+          { label: '高温膨張（気体 520K）', action: () => { appState.T = 520; } },
+          { label: '凝縮点・沸点 (360K)', action: () => { appState.T = 360; } },
+          { label: '低温側（液体 250K）', action: () => { appState.T = 250; } }
+        ]
+      }
+    };
 
     // --- 7. ステップ切り替え & クイック操作（プリセット）の更新 ---
     function setStep(newStep) {
       appState.step = newStep;
+      const cfg = STEP_CONFIG[newStep];
 
       document.querySelectorAll('.step-btn').forEach(btn => {
         btn.classList.toggle('active', parseInt(btn.dataset.step) === newStep);
       });
 
-      const condTitle = document.getElementById('condition-title');
-      const condTag = document.getElementById('condition-tag');
-      const groupTemp = document.getElementById('group-temp');
-      const groupVol = document.getElementById('group-vol');
-      const graphTitle = document.getElementById('graph-title');
-      const step0Prompt = document.getElementById('step0-next-prompt');
+      document.getElementById('step0-next-prompt').classList.toggle('hidden', newStep !== 0);
+      document.getElementById('condition-title').textContent = cfg.title;
+      document.getElementById('condition-tag').textContent = cfg.tag;
+      document.getElementById('graph-title').textContent = cfg.graphTitle;
+      document.getElementById('group-temp').classList.toggle('hidden', !cfg.showT);
+      document.getElementById('group-vol').classList.toggle('hidden', !cfg.showV);
 
-      step0Prompt.classList.toggle('hidden', newStep !== 0);
-
-      if (newStep === 0) {
-        condTitle.textContent = 'STEP 0: 気液平衡を体験（分子の動きと相変化）';
-        condTag.textContent = 'T・V操作可能 / n一定';
-        graphTitle.textContent = 'P - T 状態変化グラフ（リアルタイム連動）';
-        groupTemp.classList.remove('hidden');
-        groupVol.classList.remove('hidden');
-        
-        appState.T = 420;
-        appState.V = 25.0;
-
-        renderPresets([
-          { label: '① 初期状態（気体のみ 420K, 25L）', action: () => { appState.T = 420; appState.V = 25.0; } },
-          { label: '② 温度を下げる（冷却凝縮 280K）', action: () => { appState.T = 280; appState.V = 25.0; } },
-          { label: '③ 体積を縮める（圧縮凝縮 8.0L）', action: () => { appState.T = 420; appState.V = 8.0; } },
-          { label: '④ 高温加熱（再蒸発 550K）', action: () => { appState.T = 550; appState.V = 25.0; } }
-        ]);
-      } else if (newStep === 1) {
-        condTitle.textContent = 'STEP 1: P - T グラフの学習';
-        condTag.textContent = '条件: 体積 V=20.0L・物質量 n=1.0mol 一定';
-        graphTitle.textContent = 'P - T グラフ (V=20.0L 一定)';
-        groupTemp.classList.remove('hidden');
-        groupVol.classList.add('hidden');
-        
-        appState.T = 480;
-        appState.V = appState.pt_fixed_V; // 20.0L
-
-        renderPresets([
-          { label: '高温側（気体領域 550K）', action: () => { appState.T = 550; } },
-          { label: '液化開始点 (401K)', action: () => { appState.T = 401; } },
-          { label: '低温側（気液平衡 300K）', action: () => { appState.T = 300; } }
-        ]);
-      } else if (newStep === 2) {
-        condTitle.textContent = 'STEP 2: P - V グラフの学習';
-        condTag.textContent = '条件: 温度 T=360K・物質量 n=1.0mol 一定 (Psat=1.00)';
-        graphTitle.textContent = 'P - V グラフ (T=360K 一定)';
-        groupTemp.classList.add('hidden');
-        groupVol.classList.remove('hidden');
-
-        appState.T = appState.pv_fixed_T; // 360K
-        appState.V = 50.0;
-
-        renderPresets([
-          { label: '低圧側（気体領域 50.0L）', action: () => { appState.V = 50.0; } },
-          { label: '液化開始点 (30.0L)', action: () => { appState.V = 30.0; } },
-          { label: '気液平衡（P一定 15.0L）', action: () => { appState.V = 15.0; } },
-          { label: '高圧側（液体主体 1.0L）', action: () => { appState.V = 1.0; } }
-        ]);
-      } else if (newStep === 3) {
-        condTitle.textContent = 'STEP 3: V - T グラフの学習';
-        condTag.textContent = '条件: 圧力 P=1.00×10⁵Pa・物質量 n=1.0mol 一定';
-        graphTitle.textContent = 'V - T グラフ (P=1.00×10⁵Pa 一定)';
-        groupTemp.classList.remove('hidden');
-        groupVol.classList.add('hidden');
-
-        appState.T = 500;
-        appState.P = appState.vt_fixed_P; // 1.00
-
-        renderPresets([
-          { label: '高温膨張（気体 520K）', action: () => { appState.T = 520; } },
-          { label: '凝縮点・沸点 (360K)', action: () => { appState.T = 360; } },
-          { label: '低温側（液体 250K）', action: () => { appState.T = 250; } }
-        ]);
-      }
+      cfg.init();
+      renderPresets(cfg.presets);
 
       calculateState();
       updateUI();
