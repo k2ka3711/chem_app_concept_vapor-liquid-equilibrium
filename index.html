@@ -638,15 +638,15 @@
         </div>
       </div>
 
-      <!-- 体積スライダー (1.0L ~ 60.0L) -->
+      <!-- 体積スライダー (0.6L ~ 60.0L)。0.8 L（液体の体積）より小さくすると液体のみを圧縮する -->
       <div class="control-group" id="group-vol">
         <div class="control-header">
           <span>体積 V（ピストン圧縮・膨張）</span>
           <span style="color: var(--primary-accent);"><strong id="label-v">25.0</strong> L</span>
         </div>
         <div class="slider-container">
-          <span class="slider-limit">1L</span>
-          <input type="range" id="slider-v" min="1.0" max="60.0" step="0.5" value="25.0" aria-label="体積調整">
+          <span class="slider-limit">0.6L</span>
+          <input type="range" id="slider-v" min="0.6" max="60.0" step="0.1" value="25.0" aria-label="体積調整">
           <span class="slider-limit">60L</span>
         </div>
       </div>
@@ -705,6 +705,8 @@
     const N_TOTAL = 1.0;     // 物質量 1.0 mol
     const TOTAL_PARTICLES = 60; // 視覚化用総分子数
     const V_LIQUID_MOLAR = 0.8; // 液体1molあたりの体積 [L]
+    const LIQUID_STIFFNESS = 10.0; // 液体を体積の割合で1だけ縮めたときの圧力上昇 [×10^5 Pa]（模式的な値）
+    const V_MIN = 0.6, V_MAX = 60.0; // 体積スライダーの範囲 [L]。V_MIN は液体の体積 0.8 L より小さく、液体を圧縮できる
     const VT_EXAMPLE_GAS_FRACTION = 0.5; // STEP 3 で沸点ちょうどのときに表示する気体の割合（凝縮途中の一例）
 
     /**
@@ -753,6 +755,35 @@
     };
 
     // --- 3. 状態計算エンジン (calculateState) ---
+    /**
+     * 温度 T [K]・体積 V [L]（物質量 n 一定）から、相・圧力・気体と液体の物質量を求める。
+     * グラフの「実際の変化」の線もこの関数で描くので、表示とグラフが常に一致する。
+     */
+    function computeStateTV(T, V) {
+      const Psat = calculateSaturationPressure(T);
+      const V_liq_total = V_LIQUID_MOLAR * N_TOTAL;
+
+      if (V <= V_liq_total) {
+        // 容器が液体だけで満たされている（気体が存在できる空間がない）。
+        // 液体をさらに縮めると圧力が急に上がる（模式的な値。実際の液体はもっと縮みにくい）
+        const compression = (V_liq_total - V) / V_liq_total;
+        return { phase: 'liquid', Psat, P: Psat + LIQUID_STIFFNESS * compression, nGas: 0, nLiquid: N_TOTAL };
+      }
+
+      const P_ideal = (N_TOTAL * R_CONST * T) / V;
+      if (P_ideal <= Psat) {
+        return { phase: 'gas', Psat, P: P_ideal, nGas: N_TOTAL, nLiquid: 0 };
+      }
+
+      // 気液平衡: 気相の圧力は Psat。体積 V = n液·Vm液 + n気·RT/Psat から気体の物質量を求める
+      const num = V - N_TOTAL * V_LIQUID_MOLAR;
+      const den = (R_CONST * T) / Psat - V_LIQUID_MOLAR;
+      let nG = (den > 0.001) ? num / den : 0;
+      nG = Math.max(0, Math.min(N_TOTAL, nG));
+      // 気体が少しでも残っていれば気液平衡（P = Psat）。液体がほとんどでも「液体のみ」にはしない
+      return { phase: 'equilibrium', Psat, P: Psat, nGas: nG, nLiquid: N_TOTAL - nG };
+    }
+
     function calculateState() {
       const mode = appState.step;
 
@@ -794,40 +825,8 @@
         return;
       }
 
-      // STEP 0, STEP 1, STEP 2 の一般的な状態計算
-      const T = appState.T;
-      const V = appState.V;
-      const Psat = calculateSaturationPressure(T);
-      appState.Psat = Psat;
-
-      const P_ideal = (N_TOTAL * R_CONST * T) / V;
-      const V_liq_total = V_LIQUID_MOLAR * N_TOTAL;
-
-      if (V <= V_liq_total) {
-        // 容器が液体だけで満たされている（気体が存在できる空間がない）
-        appState.phase = 'liquid';
-        appState.nLiquid = N_TOTAL;
-        appState.nGas = 0;
-        const deltaV = Math.max(0, V_liq_total - V);
-        appState.P = Psat + 8.0 * (deltaV / V_liq_total + Math.pow(deltaV / V_liq_total, 2) * 5.0);
-      } else if (P_ideal <= Psat) {
-        appState.phase = 'gas';
-        appState.P = P_ideal;
-        appState.nGas = N_TOTAL;
-        appState.nLiquid = 0;
-      } else {
-        appState.phase = 'equilibrium';
-        appState.P = Psat;
-        
-        const num = V - N_TOTAL * V_LIQUID_MOLAR;
-        const den = (R_CONST * T) / Psat - V_LIQUID_MOLAR;
-        let nG = (den > 0.001) ? num / den : 0;
-        nG = Math.max(0, Math.min(N_TOTAL, nG));
-        
-        appState.nGas = nG;
-        appState.nLiquid = N_TOTAL - nG;
-        // 気体が少しでも残っていれば気液平衡（P = Psat）。液体がほとんどでも「液体のみ」にはしない
-      }
+      // STEP 0, STEP 1, STEP 2 の一般的な状態計算（T と V から決まる）
+      Object.assign(appState, computeStateTV(appState.T, appState.V));
 
       updateParticleCounts();
     }
@@ -873,7 +872,7 @@
       
       const minPistonY = 25;
       const maxPistonY = containerBottom - 18;
-      const vRatio = Math.max(0.01, Math.min(1.0, (appState.V - 1.0) / 59.0));
+      const vRatio = Math.max(0.01, Math.min(1.0, (appState.V - V_MIN) / (V_MAX - V_MIN)));
       const pistonY = maxPistonY - vRatio * (maxPistonY - minPistonY);
       const chamberHeight = containerBottom - pistonY;
 
@@ -1197,13 +1196,14 @@
         ctx.setLineDash([]);
 
         // 3. 実際の状態変化線（青太実線）
-        let tCond = 401;
-        for (let t = 600; t >= 200; t -= 0.5) {
-          const pi = (N_TOTAL * R_CONST * t) / fixedV;
-          const ps = calculateSaturationPressure(t);
-          if (pi > ps) {
-            tCond = t;
-            break;
+        // 高温側から下げていき、初めて気体のみでなくなる温度（凝縮開始点）
+        let tCond = null;
+        if (computeStateTV(maxT, fixedV).phase === 'gas') {
+          for (let t = maxT; t >= minT; t -= 0.5) {
+            if (computeStateTV(t, fixedV).phase !== 'gas') {
+              tCond = t;
+              break;
+            }
           }
         }
 
@@ -1211,14 +1211,7 @@
         ctx.lineWidth = 3;
         ctx.beginPath();
         for (let t = minT; t <= maxT; t += 2) {
-          let pActual;
-          const pi = (N_TOTAL * R_CONST * t) / fixedV;
-          const ps = calculateSaturationPressure(t);
-          if (t < tCond) {
-            pActual = ps;
-          } else {
-            pActual = pi;
-          }
+          const pActual = computeStateTV(t, fixedV).P;
           const cx = toCanvasX(t, minT, maxT);
           const cy = toCanvasY(pActual, minP, maxP);
           if (t === minT) ctx.moveTo(cx, cy);
@@ -1226,16 +1219,18 @@
         }
         ctx.stroke();
 
-        // 液化開始点マーカー
-        const condX = toCanvasX(tCond, minT, maxT);
-        const condY = toCanvasY((N_TOTAL * R_CONST * tCond) / fixedV, minP, maxP);
-        ctx.fillStyle = '#d97706';
-        ctx.beginPath();
-        ctx.arc(condX, condY, 4, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#b45309';
-        ctx.font = '10px sans-serif';
-        ctx.fillText(`液化開始点 (${Math.round(tCond)}K)`, condX - 25, condY - 8);
+        // 液化開始点マーカー（液体のみのときなど、凝縮の始まる点がなければ描かない）
+        if (tCond !== null) {
+          const condX = toCanvasX(tCond, minT, maxT);
+          const condY = toCanvasY((N_TOTAL * R_CONST * tCond) / fixedV, minP, maxP);
+          ctx.fillStyle = '#d97706';
+          ctx.beginPath();
+          ctx.arc(condX, condY, 4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#b45309';
+          ctx.font = '10px sans-serif';
+          ctx.fillText(`液化開始点 (${Math.round(tCond)}K)`, condX - 25, condY - 8);
+        }
 
         // 領域ラベル
         ctx.fillStyle = 'rgba(2, 132, 199, 0.8)';
@@ -1289,11 +1284,13 @@
         ctx.lineWidth = 3;
         ctx.beginPath();
 
-        // 液体領域
-        const pTop = 3.4;
-        const cxTop = toCanvasX(Vliq * 0.7, minV, maxV);
-        const cyTop = toCanvasY(pTop, minP, maxP);
-        ctx.moveTo(cxTop, cyTop);
+        // 液体領域（V_MIN 〜 液体の体積）: 状態関数の値で描く
+        for (let v = V_MIN; v < Vliq; v += 0.01) {
+          const cx = toCanvasX(v, minV, maxV);
+          const cy = toCanvasY(computeStateTV(fixedT, v).P, minP, maxP);
+          if (v === V_MIN) ctx.moveTo(cx, cy);
+          else ctx.lineTo(cx, cy);
+        }
 
         const cxLiq = toCanvasX(Vliq, minV, maxV);
         const cyLiq = toCanvasY(Psat, minP, maxP);
@@ -1566,7 +1563,8 @@
           { label: '低圧側（気体領域 50.0L）', action: () => { appState.V = 50.0; } },
           { label: '液化開始点 (30.0L)', action: () => { appState.V = 30.0; } },
           { label: '気液平衡（P一定 15.0L）', action: () => { appState.V = 15.0; } },
-          { label: 'ほとんど液体（まだ気液平衡 1.0L）', action: () => { appState.V = 1.0; } }
+          { label: 'ほとんど液体（まだ気液平衡 1.0L）', action: () => { appState.V = 1.0; } },
+          { label: '高圧側（液体のみを圧縮 0.6L）', action: () => { appState.V = 0.6; } }
         ]
       },
       3: {
