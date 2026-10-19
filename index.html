@@ -932,9 +932,9 @@
       // 画面の更新回数によらず同じ速さで動かすため、60 fps を基準に経過時間で倍率をかける
       const frameScale = dt * 60;
 
-      // 温度による気体分子運動速度
+      // 温度による気体分子運動速度: 分子の平均の速さは √T に比例する
       const tempNorm = appState.T / 360.0;
-      const speedScale = Math.pow(tempNorm, 1.7) * 1.6;
+      const speedScale = Math.sqrt(tempNorm) * 1.6;
 
       for (let i = 0; i < TOTAL_PARTICLES; i++) {
         const p = appState.particles[i];
@@ -1478,8 +1478,8 @@
       barLiq.textContent = liqPct > 0 ? `液体: ${appState.liquidParticleCount}個 (${liqPct}%)` : '';
 
       const speedLabel = document.getElementById('molecule-speed-label');
-      if (appState.T >= 480) speedLabel.textContent = '分子運動: 非常に激しい（超高速）';
-      else if (appState.T >= 360) speedLabel.textContent = '分子運動: 活発（高速）';
+      if (appState.T >= 480) speedLabel.textContent = '分子運動: 非常に活発';
+      else if (appState.T >= 360) speedLabel.textContent = '分子運動: 活発';
       else if (appState.T >= 280) speedLabel.textContent = '分子運動: 中程度';
       else speedLabel.textContent = '分子運動: 穏やか（遅い）';
 
