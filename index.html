@@ -929,6 +929,9 @@
       ctx.fillStyle = '#475569';
       ctx.fillRect(width / 2 - 25, 5, 50, 8);
 
+      // 画面の更新回数によらず同じ速さで動かすため、60 fps を基準に経過時間で倍率をかける
+      const frameScale = dt * 60;
+
       // 温度による気体分子運動速度
       const tempNorm = appState.T / 360.0;
       const speedScale = Math.pow(tempNorm, 1.7) * 1.6;
@@ -950,8 +953,8 @@
         const p = appState.particles[i];
 
         if (p.isGas) {
-          p.x += p.vx * speedScale;
-          p.y += p.vy * speedScale;
+          p.x += p.vx * speedScale * frameScale;
+          p.y += p.vy * speedScale * frameScale;
 
           if (p.x < gasBoundLeft) { p.x = gasBoundLeft; p.vx = Math.abs(p.vx); }
           if (p.x > gasBoundRight) { p.x = gasBoundRight; p.vx = -Math.abs(p.vx); }
@@ -996,7 +999,8 @@
 
       // 液面（気液界面）での局所的な蒸発・凝縮アニメーション
       if (appState.phase === 'equilibrium' || (appState.nLiquid > 0 && appState.nGas > 0)) {
-        if (Math.random() < 0.22) {
+        const spawnChance = 1 - Math.pow(1 - 0.22, frameScale); // 1フレーム(1/60秒)あたり 22%
+        if (Math.random() < spawnChance) {
           appState.evapEvents.push({
             x: containerLeft + 15 + Math.random() * (containerWidth - 30),
             y: liquidSurfaceY,
@@ -1006,7 +1010,7 @@
           });
         }
 
-        if (Math.random() < 0.22) {
+        if (Math.random() < spawnChance) {
           appState.condEvents.push({
             x: containerLeft + 15 + Math.random() * (containerWidth - 30),
             y: liquidSurfaceY - 16,
@@ -1019,8 +1023,8 @@
         ctx.strokeStyle = '#ea580c';
         for (let i = appState.evapEvents.length - 1; i >= 0; i--) {
           const ev = appState.evapEvents[i];
-          ev.y += ev.vy;
-          ev.life -= 0.045;
+          ev.y += ev.vy * frameScale;
+          ev.life -= 0.045 * frameScale;
           if (ev.life <= 0 || (liquidSurfaceY - ev.y) > ev.maxDist) {
             appState.evapEvents.splice(i, 1);
             continue;
@@ -1042,8 +1046,8 @@
         ctx.strokeStyle = '#2563eb';
         for (let i = appState.condEvents.length - 1; i >= 0; i--) {
           const cv = appState.condEvents[i];
-          cv.y += cv.vy;
-          cv.life -= 0.045;
+          cv.y += cv.vy * frameScale;
+          cv.life -= 0.045 * frameScale;
           if (cv.life <= 0 || cv.y >= liquidSurfaceY + 2) {
             appState.condEvents.splice(i, 1);
             continue;
