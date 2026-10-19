@@ -577,7 +577,7 @@
         <div class="metric-box">
           <div class="metric-label">圧力 P</div>
           <div class="metric-value"><span id="val-p">1.40</span> <span class="metric-unit">×10⁵ Pa</span></div>
-          <div class="metric-label" style="font-size: 0.65rem; color: #64748b;">Psat: <span id="val-psat">2.04</span></div>
+          <div class="metric-label" style="font-size: 0.65rem; color: #64748b;">Psat: <span id="val-psat">2.04</span> ×10⁵ Pa</div>
         </div>
         <div class="metric-box">
           <div class="metric-label">体積 V</div>
@@ -1463,7 +1463,9 @@
     function updateUI() {
       graphDirty = true;
       document.getElementById('val-t').textContent = Math.round(appState.T);
-      document.getElementById('val-t-c').textContent = Math.round(appState.T - 273.15);
+      // t = T − 273（教科書の換算）。負の値はマイナス記号「−」で表記する
+      const tC = Math.round(appState.T) - 273;
+      document.getElementById('val-t-c').textContent = tC < 0 ? `−${-tC}` : `${tC}`;
       document.getElementById('val-p').textContent = appState.P.toFixed(2);
       document.getElementById('val-psat').textContent = appState.Psat.toFixed(2);
       document.getElementById('val-v').textContent = appState.V.toFixed(1);
